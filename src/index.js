@@ -1,4 +1,6 @@
 
+const BbPromise = require('bluebird');
+
 class Plugin {
 
   constructor(serverless, options) {
@@ -22,64 +24,82 @@ class Plugin {
 
   }
 
+  buildDeadLetterUpdateParams(functionName) {
+
+    const functionObj = this.serverless.service.getFunction(functionName);
+
+    this.serverless.cli.log(`** Function:  ${functionName}`);
+
+    if (!functionObj.deadLetter) {
+      return BbPromise.resolve();
+    }
+    if (!functionObj.deadLetter.targetArn) {
+      throw new Error(`Function: ${functionName} is missing 'targetArn' value.`);
+    }
+    const targetArn = functionObj.deadLetter.targetArn;
+
+    return BbPromise.bind(this)
+      .then(() => {
+
+        if (typeof targetArn === 'string') {
+          const rg = new RegExp(
+            '^(arn:aws:sqs:[a-z]{2,}-[a-z]{2,}-[0-9]{1}:[0-9]{12}:[a-zA-z0-9\\-_.]{1,80}$' +
+            '|arn:aws:sns:[a-z]{2,}-[a-z]{2,}-[0-9]{1}:[0-9]{12}:[a-zA-z0-9\\-_]{1,256})$');
+
+
+          if (!rg.test(targetArn)) {
+            throw new Error(`Function property ${functionName}.deadLetter.targetArn = '${functionObj.deadLetter.targetArn}'.  This is not a valid sns or sqs arn. `);
+          }
+
+          return BbPromise.resolve(targetArn);
+
+        } else if (typeof targetArn === 'object') {
+
+          if (!targetArn.GetArn) {
+            throw new Error(`Function property ${functionName}.deadLetter.targetArn object is missing GetArn property.`);
+          }
+          // let dlLogicalId = targetArn.GetArn;
+
+          // TODO:  Check that dlLogicalId is a valid resource in the stack
+          // TODO:  Attempt to get the ARN of the resource identified by dlLogicalId
+          // targetArnString ...
+          return BbPromise.resolve();
+        }
+
+        throw new Error(`Function property ${functionName}.deadLetter.targetArn is an unexpected type.  This must be an object or string.`);
+
+      })
+      .then((targetArnString) => {
+
+        this.serverless.cli.log(`** Function: ${functionName}, DeadLetterArn:  ${targetArnString}`);
+
+        return BbPromise.resolve({
+          FunctionName: functionObj.name,
+          DeadLetterConfig: {
+            TargetArn: targetArnString
+          }
+        });
+
+      });
+  }
+
   setLambdaDeadLetterConfig() {
 
-    // TODO:  Rework t his to wait until all promics are complete.
-    this.serverless.service.getAllFunctions().forEach((functionName) => {
+    return BbPromise.mapSeries(this.serverless.service.getAllFunctions(), functionName =>
+      this.buildDeadLetterUpdateParams(functionName)
 
-      const functionObj = this.serverless.service.getFunction(functionName);
-      let targetArnString;
+      .then((deadLetterUpdateParams) => {
 
-
-      this.serverless.cli.log(`** Function:  ${functionName}`);
-
-      if (!functionObj.deadLetter) {
-        return;
-      }
-      if (!functionObj.deadLetter.targetArn) {
-        throw new Error(`Function: ${functionName} is missing 'targetArn' value.`);
-      }
-      const targetArn = functionObj.deadLetter.targetArn;
-
-      if (typeof targetArn === 'string') {
-        const rg = new RegExp(
-          '^(arn:aws:sqs:[a-z]{2,}-[a-z]{2,}-[0-9]{1}:[0-9]{12}:[a-zA-z0-9\\-_.]{1,80}$' +
-          '|arn:aws:sns:[a-z]{2,}-[a-z]{2,}-[0-9]{1}:[0-9]{12}:[a-zA-z0-9\\-_]{1,256})$');
-
-
-        if (!rg.test(targetArn)) {
-          throw new Error(`Function property ${functionName}.deadLetter.targetArn = '${functionObj.deadLetter.targetArn}'.  This is not a valid sns or sqs arn. `);
+        if (!deadLetterUpdateParams) {
+          return BbPromise.resolve();
         }
 
-        targetArnString = targetArn;
-
-      } else if (typeof targetArn === 'object') {
-
-        if (!targetArn.GetArn) {
-          throw new Error(`Function property ${functionName}.deadLetter.targetArn object is missing GetArn property.`);
-        }
-        // let dlLogicalId = targetArn.GetArn;
-
-        // TODO:  Check that dlLogicalId is a valid resource in the stack
-        // TODO:  Attempt to get the ARN of the resource identified by dlLogicalId
-        // targetArnString ...
-      }
-
-      this.serverless.cli.log(`** Function: ${functionName}, DeadLetterArn:  ${targetArnString}`);
-
-      const params = {
-        FunctionName: functionObj.name,
-        DeadLetterConfig: {
-          TargetArn: targetArnString
-        }
-      };
-
-      return this.provider.request('Lambda', 'updateFunctionConfiguration', params, this.options.stage, this.options.region)
-             .then(() => {
-               this.serverless.cli.log(`Function '${functionName}' DeadLetterConfig assigned.`);
-             });
-
-    });
+        return this.provider.request('Lambda', 'updateFunctionConfiguration',
+          deadLetterUpdateParams, this.options.stage, this.options.region)
+          .then(() => {
+            this.serverless.cli.log(`Function '${functionName}' DeadLetterConfig assigned.`);
+          });
+      }));
   }
 
 }
