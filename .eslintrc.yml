@@ -5,3 +5,4 @@ plugins:
 rules:
   padded-blocks: off
   no-trailing-spaces: [error, skipBlankLines: true]
+  comma-dangle: [error, never]
