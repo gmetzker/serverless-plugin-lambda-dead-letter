@@ -1,0 +1,25 @@
+{
+  "name": "serverless-plugin-lambda-dead-letter",
+  "version": "1.0.0",
+  "description": "Plugin for serverless to set the DeadLetterConfig for lambda functions",
+  "main": "src/index.js",
+  "author": "Gary Metzker",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.hli.io/HLI/serverless-plugin-lambda-dead-letter.gite"
+  },
+  "keywords": [
+    "serverless plugin dead letter",
+    "DeadLetterConfig",
+    "serverless",
+    "lambda",
+    "aws"
+  ],
+  "dependencies": {},
+  "devDependencies": {
+    "eslint": "^3.12.2",
+    "eslint-config-airbnb-base": "^11.0.0",
+    "eslint-plugin-import": "^2.2.0"
+  }
+}

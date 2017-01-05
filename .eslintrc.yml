@@ -1,0 +1,7 @@
+extends: airbnb-base
+plugins:
+  - import
+
+rules:
+  padded-blocks: off
+  no-trailing-spaces: [error, skipBlankLines: true]
