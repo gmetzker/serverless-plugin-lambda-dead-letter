@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Plugin for serverless to set the DeadLetterConfig for lambda functions",
   "main": "src/index.js",
+  "scripts": {
+    "test": "grunt standards && ./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha -- -R spec 'tests/**/*.test.js'"
+  },
   "author": "Gary Metzker",
   "license": "MIT",
   "repository": {
@@ -22,6 +25,12 @@
   "devDependencies": {
     "eslint": "^3.12.2",
     "eslint-config-airbnb-base": "^11.0.0",
-    "eslint-plugin-import": "^2.2.0"
+    "eslint-plugin-import": "^2.2.0",
+    "expect.js": "^0.3.1",
+    "grunt": "^1.0.1",
+    "grunt-eslint": "^19.0.0",
+    "istanbul": "^0.4.5",
+    "mocha": "^3.2.0",
+    "sinon": "^1.17.7"
   }
 }
