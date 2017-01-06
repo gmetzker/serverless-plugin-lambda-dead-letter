@@ -10,9 +10,14 @@ class Plugin {
     this.provider = serverless.getProvider('aws');
 
     this.hooks = {
-       // 'deploy:compileEvents': this.compileLambdaDeadLetterResources.bind(this),
-      'deploy:deploy': this.setLambdaDeadLetterConfig.bind(this),
-      'setLambdaDeadLetterConfig:setLambdaDeadLetterConfig': this.setLambdaDeadLetterConfig.bind(this)
+
+      'deploy:deploy': () => BbPromise.bind(this)
+        .then(this.setLambdaDeadLetterConfig),
+
+
+      'setLambdaDeadLetterConfig:setLambdaDeadLetterConfig': () => BbPromise.bind(this)
+        .then(this.setLambdaDeadLetterConfig)
+
     };
 
     this.commands = {
@@ -55,15 +60,41 @@ class Plugin {
 
         } else if (typeof targetArn === 'object') {
 
-          if (!targetArn.GetArn) {
-            throw new Error(`Function property ${functionName}.deadLetter.targetArn object is missing GetArn property.`);
+          if (!targetArn.GetResourceArn) {
+            throw new Error(`Function property ${functionName}.deadLetter.targetArn object is missing GetResourceArn property.`);
           }
-          // let dlLogicalId = targetArn.GetArn;
 
-          // TODO:  Check that dlLogicalId is a valid resource in the stack
-          // TODO:  Attempt to get the ARN of the resource identified by dlLogicalId
-          // targetArnString ...
-          return BbPromise.resolve();
+          const stackName = this.provider.naming.getStackName();
+
+          this.serverless.cli.log(`Stackname: ${stackName}`);
+
+          const params = {
+            StackName: stackName,
+            LogicalResourceId: targetArn.GetResourceArn
+          };
+
+          return this.provider.request('CloudFormation', 'describeStackResource',
+            params, this.options.stage, this.options.region)
+            .then((response) => {
+
+              const resType = response.StackResourceDetail.ResourceType;
+              switch (resType) {
+
+                case 'AWS::SNS::Topic':
+                  return BbPromise.resolve(response.StackResourceDetail.PhysicalResourceId);
+
+                case 'AWS::SQS::Queue': {
+                  const queueUrl = response.StackResourceDetail.PhysicalResourceId;
+                  return BbPromise.resolve(Plugin.convertQueueUrlToArn(queueUrl));
+                }
+                default:
+                  throw new Error(`Function property ${functionName}.deadLetter.targetArn.GetResourceArn ` +
+                    `must be a queue or topic.  Resource not supported:  ${resType}`);
+
+              }
+
+            });
+
         }
 
         throw new Error(`Function property ${functionName}.deadLetter.targetArn is an unexpected type.  This must be an object or string.`);
@@ -100,6 +131,16 @@ class Plugin {
             this.serverless.cli.log(`Function '${functionName}' DeadLetterConfig assigned.`);
           });
       }));
+  }
+
+  static convertQueueUrlToArn(queueUrl) {
+
+    const tokens = queueUrl.slice(8).split('/');
+    const region = tokens[0].split('.')[1];
+    const account = tokens[1];
+    const queueName = tokens[2];
+
+    return ['arn', 'aws', 'sqs', region, account, queueName].join(':');
   }
 
 }
