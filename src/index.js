@@ -38,7 +38,7 @@ class Plugin {
     if (!functionObj.deadLetter) {
       return BbPromise.resolve();
     }
-    if (!functionObj.deadLetter.targetArn) {
+    if (functionObj.deadLetter.targetArn === undefined) {
       throw new Error(`Function: ${functionName} is missing 'targetArn' value.`);
     }
     const targetArn = functionObj.deadLetter.targetArn;
@@ -46,7 +46,13 @@ class Plugin {
     return BbPromise.bind(this)
       .then(() => {
 
-        if (typeof targetArn === 'string') {
+        if (targetArn === null ||
+          (typeof targetArn === 'string' && targetArn.trim().length === 0)) {
+
+          return BbPromise.resolve('');
+
+        } else if (typeof targetArn === 'string') {
+
           const rg = new RegExp(
             '^(arn:aws:sqs:[a-z]{2,}-[a-z]{2,}-[0-9]{1}:[0-9]{12}:[a-zA-z0-9\\-_.]{1,80}' +
             '|arn:aws:sns:[a-z]{2,}-[a-z]{2,}-[0-9]{1}:[0-9]{12}:[a-zA-z0-9\\-_]{1,256})$');
@@ -100,18 +106,15 @@ class Plugin {
         throw new Error(`Function property ${functionName}.deadLetter.targetArn is an unexpected type.  This must be an object or string.`);
 
       })
-      .then((targetArnString) => {
-
-        this.serverless.cli.log(`** Function: ${functionName}, DeadLetterArn:  ${targetArnString}`);
-
-        return BbPromise.resolve({
+      .then(targetArnString =>
+        BbPromise.resolve({
           FunctionName: functionObj.name,
           DeadLetterConfig: {
             TargetArn: targetArnString
           }
-        });
+        })
 
-      });
+      );
   }
 
   setLambdaDeadLetterConfig() {
@@ -128,7 +131,12 @@ class Plugin {
         return this.provider.request('Lambda', 'updateFunctionConfiguration',
           deadLetterUpdateParams, this.options.stage, this.options.region)
           .then(() => {
-            this.serverless.cli.log(`Function '${functionName}' DeadLetterConfig assigned.`);
+
+            const arnStr = deadLetterUpdateParams.DeadLetterConfig.TargetArn || '{none}';
+
+            this.serverless.cli.log(`Function '${functionName}' ` +
+              `DeadLetterConfig assigned TargetArn: '${arnStr}'`);
+
           });
       }));
   }
