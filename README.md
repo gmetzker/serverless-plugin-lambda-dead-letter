@@ -21,7 +21,7 @@ plugins:
 
 ## How do I use it?
 
-Dead letter settings are assigned via a new `deadLetter` property nested under the function.  The property name `deadLetter` was used rather than `deadLetterConfig` so that future internal implementations of `deadLetterConfig` that will most likely be directly supported by CloudFormation natively will not conflict.
+Dead letter settings are assigned via a new `deadLetter` property nested under a function in a `serverless.yml` file.  The property name `deadLetter` was used rather than `deadLetterConfig` so that future internal implementations of `deadLetterConfig`, that will most likely be directly supported by CloudFormation natively, will not conflict.
 
 There are several ways to inform the plugin how you want to wire up the DLQ.
 
@@ -51,8 +51,9 @@ This will use the arn of the resource referenced by `{logicalId}`
 ```
 Note:  
 - At present this only works for SQS queues or SNS Topics.
-- If a queue\topic is created in via the `resources` section you will still need to add resources for the respective queue\topic policy so that that lambda has permissions to write to the dead letter queue\topic.
+- If a queue\topic is created in the `resources` section you will still need to add a resource for the respective queue\topic policy so that that lambda has permissions to write to the dead letter queue\topic.
 
+In this example the `createUser` lambda function is using the new `CreateUserDeadLetterQueue` SQS queue defined in the resources section.
 
 ```
 # 'functions' in serverless.yml
