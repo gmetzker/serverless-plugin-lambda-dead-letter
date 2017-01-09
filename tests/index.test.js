@@ -539,4 +539,114 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
 
   });
+
+  describe('resolveTargetArnString', () => {
+
+    it('can return empty string when targetArn is empty', () => {
+
+      // ARRANGE:
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const stubRequestFunc = sinon.stub(mockServerless.getProvider('aws'), 'request', () => BbPromise.resolve());
+
+      const plugin = new Plugin(mockServerless, { });
+
+      // ACT:
+      const actual = plugin.resolveTargetArnFromString('f1', '');
+
+      // ASSERT:
+      return actual.then((targetArnString) => {
+        expect(targetArnString).to.be.empty();
+        expect(stubRequestFunc.callCount).to.be(0);
+
+      });
+
+    });
+
+    it('can return empty string when targetArn is whitespace', () => {
+
+      // ARRANGE:
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const stubRequestFunc = sinon.stub(mockServerless.getProvider('aws'), 'request', () => BbPromise.resolve());
+
+      const plugin = new Plugin(mockServerless, { });
+
+      // ACT:
+      const actual = plugin.resolveTargetArnFromString('f1', '   ');
+
+      // ASSERT:
+      return actual.then((targetArnString) => {
+        expect(targetArnString).to.be.empty();
+        expect(stubRequestFunc.callCount).to.be(0);
+
+      });
+
+    });
+
+    it('can throw exception if targetArn is not an SNS or SQS arn', () => {
+
+      // ARRANGE:
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const stubRequestFunc = sinon.stub(mockServerless.getProvider('aws'), 'request', () => BbPromise.resolve());
+
+      const plugin = new Plugin(mockServerless, { });
+
+      // ACT:
+      const act = () => plugin.resolveTargetArnFromString('f1', 'something-bad');
+
+      // ASSERT:
+
+      expect(act).to.throwException();
+      expect(stubRequestFunc.callCount).to.be(0);
+
+    });
+
+    it('can return the same string if targetArn is an SNS arn', () => {
+
+      // ARRANGE:
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const stubRequestFunc = sinon.stub(mockServerless.getProvider('aws'), 'request', () => BbPromise.resolve());
+
+      const plugin = new Plugin(mockServerless, { });
+      const snsArn = 'arn:aws:sns:us-west-2:123456789012:f1-dlt';
+
+      // ACT:
+      const actual = plugin.resolveTargetArnFromString('f1', snsArn);
+
+      // ASSERT:
+
+      expect(isPromise(actual)).to.be(true);
+      return actual.then((resultArn) => {
+
+        expect(resultArn).to.be(snsArn);
+        expect(stubRequestFunc.callCount).to.be(0);
+      });
+
+
+    });
+
+    it('can return the same string if targetArn is an SQS arn', () => {
+
+      // ARRANGE:
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const stubRequestFunc = sinon.stub(mockServerless.getProvider('aws'), 'request', () => BbPromise.resolve());
+
+      const plugin = new Plugin(mockServerless, { });
+      const sqsArn = 'arn:aws:sqs:us-west-2:123456789012:f1-dlq.fifo';
+
+      // ACT:
+      const actual = plugin.resolveTargetArnFromString('f1', sqsArn);
+
+      // ASSERT:
+
+      expect(isPromise(actual)).to.be(true);
+      return actual.then((resultArn) => {
+
+        expect(resultArn).to.be(sqsArn);
+        expect(stubRequestFunc.callCount).to.be(0);
+      });
+
+
+    });
+
+  });
 });
