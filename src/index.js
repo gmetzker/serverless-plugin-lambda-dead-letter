@@ -29,71 +29,84 @@ class Plugin {
 
   }
 
-  resolveTargetArnString(functionName, targetArn) {
+  resolveTargetArn(functionName, targetArn) {
 
     if (targetArn === undefined) {
-      throw new Error(`Function: ${functionName} is missing 'targetArn' value.`);
-    }
 
-    if (targetArn === null ||
-      (typeof targetArn === 'string' && targetArn.trim().length === 0)) {
+      throw new Error(`Function: ${functionName} is missing 'targetArn' value.`);
+
+    } else if (targetArn === null) {
 
       return BbPromise.resolve('');
 
     } else if (typeof targetArn === 'string') {
 
-      const rg = new RegExp(
-        '^(arn:aws:sqs:[a-z]{2,}-[a-z]{2,}-[0-9]{1}:[0-9]{12}:[a-zA-z0-9\\-_.]{1,80}' +
-        '|arn:aws:sns:[a-z]{2,}-[a-z]{2,}-[0-9]{1}:[0-9]{12}:[a-zA-z0-9\\-_]{1,256})$');
-
-
-      if (!rg.test(targetArn)) {
-        throw new Error(`Function property ${functionName}.deadLetter.targetArn = '${targetArn}'.  This is not a valid sns or sqs arn. `);
-      }
-
-      return BbPromise.resolve(targetArn);
+      return this.resolveTargetArnFromString(functionName, targetArn);
 
     } else if (typeof targetArn === 'object') {
 
-      if (!targetArn.GetResourceArn) {
-        throw new Error(`Function property ${functionName}.deadLetter.targetArn object is missing GetResourceArn property.`);
-      }
-
-      const stackName = this.provider.naming.getStackName();
-
-      this.serverless.cli.log(`Stackname: ${stackName}`);
-
-      const params = {
-        StackName: stackName,
-        LogicalResourceId: targetArn.GetResourceArn
-      };
-
-      return this.provider.request('CloudFormation', 'describeStackResource',
-        params, this.options.stage, this.options.region)
-        .then((response) => {
-
-          const resType = response.StackResourceDetail.ResourceType;
-          switch (resType) {
-
-            case 'AWS::SNS::Topic':
-              return BbPromise.resolve(response.StackResourceDetail.PhysicalResourceId);
-
-            case 'AWS::SQS::Queue': {
-              const queueUrl = response.StackResourceDetail.PhysicalResourceId;
-              return BbPromise.resolve(Plugin.convertQueueUrlToArn(queueUrl));
-            }
-            default:
-              throw new Error(`Function property ${functionName}.deadLetter.targetArn.GetResourceArn ` +
-                `must be a queue or topic.  Resource not supported:  ${resType}`);
-
-          }
-
-        });
-
+      return this.resolveTargetArnFromObject(functionName, targetArn);
     }
 
     throw new Error(`Function property ${functionName}.deadLetter.targetArn is an unexpected type.  This must be an object or string.`);
 
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  resolveTargetArnFromString(functionName, targetArn) {
+
+    if (targetArn.trim().length === 0) {
+      return BbPromise.resolve('');
+    }
+
+    const rg = new RegExp(
+      '^(arn:aws:sqs:[a-z]{2,}-[a-z]{2,}-[0-9]{1}:[0-9]{12}:[a-zA-z0-9\\-_.]{1,80}' +
+      '|arn:aws:sns:[a-z]{2,}-[a-z]{2,}-[0-9]{1}:[0-9]{12}:[a-zA-z0-9\\-_]{1,256})$');
+
+
+    if (!rg.test(targetArn)) {
+      throw new Error(`Function property ${functionName}.deadLetter.targetArn = '${targetArn}'.  This is not a valid sns or sqs arn. `);
+    }
+
+    return BbPromise.resolve(targetArn);
+  }
+
+  resolveTargetArnFromObject(functionName, targetArn) {
+
+    if (!targetArn.GetResourceArn) {
+      throw new Error(`Function property ${functionName}.deadLetter.targetArn object is missing GetResourceArn property.`);
+    }
+
+    const stackName = this.provider.naming.getStackName();
+
+    this.serverless.cli.log(`Stackname: ${stackName}`);
+
+    const params = {
+      StackName: stackName,
+      LogicalResourceId: targetArn.GetResourceArn
+    };
+
+    return this.provider.request('CloudFormation', 'describeStackResource',
+      params, this.options.stage, this.options.region)
+      .then((response) => {
+
+        const resType = response.StackResourceDetail.ResourceType;
+        switch (resType) {
+
+          case 'AWS::SNS::Topic':
+            return BbPromise.resolve(response.StackResourceDetail.PhysicalResourceId);
+
+          case 'AWS::SQS::Queue': {
+            const queueUrl = response.StackResourceDetail.PhysicalResourceId;
+            return BbPromise.resolve(Plugin.convertQueueUrlToArn(queueUrl));
+          }
+          default:
+            throw new Error(`Function property ${functionName}.deadLetter.targetArn.GetResourceArn ` +
+              `must be a queue or topic.  Resource not supported:  ${resType}`);
+
+        }
+
+      });
   }
 
   buildDeadLetterUpdateParams(functionName) {
@@ -110,8 +123,8 @@ class Plugin {
     }
     return BbPromise.bind(this)
 
-      .then(() => this.resolveTargetArnString(functionName, functionObj.deadLetter.targetArn))
-            
+      .then(() => this.resolveTargetArn(functionName, functionObj.deadLetter.targetArn))
+
       .then(targetArnString => BbPromise.resolve({
         FunctionName: functionObj.name,
         DeadLetterConfig: {

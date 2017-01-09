@@ -202,7 +202,7 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
       const plugin = new Plugin(mockServerless, { stage, region });
 
-      const stubResolveTargetArnString = sinon.stub(plugin, 'resolveTargetArnString', () => BbPromise.resolve());
+      const stubresolveTargetArn = sinon.stub(plugin, 'resolveTargetArn', () => BbPromise.resolve());
 
       // ACT:
       const actual = plugin.buildDeadLetterUpdateParams(logicalFuncName);
@@ -212,7 +212,7 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
       return actual.then((targetArnString) => {
 
-        expect(stubResolveTargetArnString.callCount).to.be(0);
+        expect(stubresolveTargetArn.callCount).to.be(0);
         expect(targetArnString).to.be(undefined);
 
       });
@@ -237,7 +237,7 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
       const plugin = new Plugin(mockServerless, { stage, region });
 
-      const stubResolveTargetArnString = sinon.stub(plugin, 'resolveTargetArnString', () => BbPromise.resolve());
+      const stubresolveTargetArn = sinon.stub(plugin, 'resolveTargetArn', () => BbPromise.resolve());
 
       // ACT:
       const act = () => plugin.buildDeadLetterUpdateParams(logicalFuncName);
@@ -245,7 +245,7 @@ describe('serverless-plugin-lambda-dead-letter', () => {
       // ASSERT:
       expect(act).to.throwException();
 
-      expect(stubResolveTargetArnString.callCount).to.be(0);
+      expect(stubresolveTargetArn.callCount).to.be(0);
 
     });
 
@@ -271,7 +271,7 @@ describe('serverless-plugin-lambda-dead-letter', () => {
       const plugin = new Plugin(mockServerless, { stage, region });
 
       const resolvedTargetArnStr = 'some-arn';
-      const stubResolveTargetArnString = sinon.stub(plugin, 'resolveTargetArnString', () => BbPromise.resolve(resolvedTargetArnStr));
+      const stubresolveTargetArn = sinon.stub(plugin, 'resolveTargetArn', () => BbPromise.resolve(resolvedTargetArnStr));
 
       // ACT:
       const actual = plugin.buildDeadLetterUpdateParams(logicalFuncName);
@@ -281,8 +281,8 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
       return actual.then((actualParams) => {
 
-        expect(stubResolveTargetArnString.callCount).to.be(1);
-        expect(stubResolveTargetArnString.withArgs(logicalFuncName, mockTargetArn)
+        expect(stubresolveTargetArn.callCount).to.be(1);
+        expect(stubresolveTargetArn.withArgs(logicalFuncName, mockTargetArn)
           .calledOnce).to.be(true);
 
         expect(actualParams).to.eql({
@@ -316,7 +316,7 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
       const plugin = new Plugin(mockServerless, { stage, region });
 
-      const stubResolveTargetArnString = sinon.stub(plugin, 'resolveTargetArnString', () => BbPromise.resolve(''));
+      const stubresolveTargetArn = sinon.stub(plugin, 'resolveTargetArn', () => BbPromise.resolve(''));
 
       // ACT:
       const actual = plugin.buildDeadLetterUpdateParams(logicalFuncName);
@@ -326,8 +326,8 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
       return actual.then((actualParams) => {
 
-        expect(stubResolveTargetArnString.callCount).to.be(1);
-        expect(stubResolveTargetArnString.withArgs(logicalFuncName, mockTargetArn)
+        expect(stubresolveTargetArn.callCount).to.be(1);
+        expect(stubresolveTargetArn.withArgs(logicalFuncName, mockTargetArn)
           .calledOnce).to.be(true);
 
         expect(actualParams).to.eql({
@@ -340,7 +340,7 @@ describe('serverless-plugin-lambda-dead-letter', () => {
       });
     });
 
-    it('will bubble exception if resolveTargetArnString throws an exception', () => {
+    it('will bubble exception if resolveTargetArn throws an exception', () => {
       // ARRANGE:
 
       const stage = 'test1';
@@ -361,8 +361,8 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
       const plugin = new Plugin(mockServerless, { stage, region });
 
-      const stubResolveTargetArnString = sinon.stub(plugin, 'resolveTargetArnString');
-      stubResolveTargetArnString.throws(new Error('fail'));
+      const stubresolveTargetArn = sinon.stub(plugin, 'resolveTargetArn');
+      stubresolveTargetArn.throws(new Error('fail'));
 
       // ACT:
       const actual = plugin.buildDeadLetterUpdateParams(logicalFuncName);
@@ -381,5 +381,162 @@ describe('serverless-plugin-lambda-dead-letter', () => {
         });
 
     });
+  });
+
+  describe('resolveTargetArn', () => {
+
+    it('can throw exception when targetArn is undefined', () => {
+
+      // ARRANGE:
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const plugin = new Plugin(mockServerless, { });
+
+
+      // ACT:
+      const act = () => plugin.resolveTargetArn('f1', undefined);
+
+      // ASSERT:
+      expect(act).throwException();
+
+    });
+
+    it('can return empty string if targetArn is null', () => {
+
+      // ARRANGE:
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const plugin = new Plugin(mockServerless, { });
+
+      const stubResolveTargetArnFromString = sinon.stub(plugin, 'resolveTargetArnFromString', () => BbPromise.resolve());
+      const stubResolveTargetArnFromObject = sinon.stub(plugin, 'resolveTargetArnFromObject', () => BbPromise.resolve());
+
+
+      // ACT:
+      const actual = plugin.resolveTargetArn('f1', null);
+
+      // ASSERT:
+      expect(isPromise(actual)).to.be(true);
+
+      return actual.then((arnString) => {
+        expect(arnString).to.be.empty();
+
+        expect(stubResolveTargetArnFromString.callCount).to.be.eql(0);
+        expect(stubResolveTargetArnFromObject.callCount).to.be.eql(0);
+
+
+      });
+
+    });
+
+    it('can call resolveTargetArnFromString if targetArn is a non empy string', () => {
+
+      // ARRANGE:
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const plugin = new Plugin(mockServerless, { });
+
+      const stubResolveTargetArnFromString = sinon.stub(plugin, 'resolveTargetArnFromString', () => BbPromise.resolve('arn:bob'));
+      const stubResolveTargetArnFromObject = sinon.stub(plugin, 'resolveTargetArnFromObject', () => BbPromise.resolve());
+
+
+      // ACT:
+      const actual = plugin.resolveTargetArn('f1', 'bob');
+
+      // ASSERT:
+      expect(isPromise(actual)).to.be(true);
+
+      return actual.then((arnString) => {
+
+        expect(arnString).to.be('arn:bob');
+
+        expect(stubResolveTargetArnFromString.callCount).to.be(1);
+        expect(stubResolveTargetArnFromString.calledWithExactly('f1', 'bob')).to.be(true);
+
+        expect(stubResolveTargetArnFromObject.callCount).to.be.eql(0);
+
+
+      });
+
+    });
+
+    it('can call resolveTargetArnFromString if targetArn is an empy string', () => {
+
+      // ARRANGE:
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const plugin = new Plugin(mockServerless, { });
+
+      const stubResolveTargetArnFromString = sinon.stub(plugin, 'resolveTargetArnFromString', () => BbPromise.resolve(''));
+      const stubResolveTargetArnFromObject = sinon.stub(plugin, 'resolveTargetArnFromObject', () => BbPromise.resolve());
+
+
+      // ACT:
+      const actual = plugin.resolveTargetArn('f1', '');
+
+      // ASSERT:
+      expect(isPromise(actual)).to.be(true);
+
+      return actual.then((arnString) => {
+
+        expect(arnString).to.be.empty();
+
+        expect(stubResolveTargetArnFromString.callCount).to.be(1);
+        expect(stubResolveTargetArnFromString.calledWithExactly('f1', '')).to.be(true);
+
+        expect(stubResolveTargetArnFromObject.callCount).to.be.eql(0);
+
+
+      });
+
+    });
+
+    it('can call resolveTargetArnFromObject if targetArn is an object', () => {
+
+      // ARRANGE:
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const plugin = new Plugin(mockServerless, { });
+
+      const stubResolveTargetArnFromString = sinon.stub(plugin, 'resolveTargetArnFromString', () => BbPromise.resolve());
+      const stubResolveTargetArnFromObject = sinon.stub(plugin, 'resolveTargetArnFromObject', () => BbPromise.resolve('arn:cool'));
+
+      const fakeArnObj = { k1: 'v1' };
+
+      // ACT:
+      const actual = plugin.resolveTargetArn('f1', fakeArnObj);
+
+      // ASSERT:
+      expect(isPromise(actual)).to.be(true);
+
+      return actual.then((arnString) => {
+
+        expect(arnString).to.be('arn:cool');
+
+        expect(stubResolveTargetArnFromObject.callCount).to.be(1);
+        expect(stubResolveTargetArnFromObject.calledWithExactly('f1', fakeArnObj)).to.be(true);
+
+        expect(stubResolveTargetArnFromString.callCount).to.be.eql(0);
+
+
+      });
+
+    });
+
+    it('can throw an exception when targetArn is neither an object nor a string', () => {
+
+      // ARRANGE:
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const plugin = new Plugin(mockServerless, { });
+
+      const stubResolveTargetArnFromString = sinon.stub(plugin, 'resolveTargetArnFromString', () => BbPromise.resolve());
+      const stubResolveTargetArnFromObject = sinon.stub(plugin, 'resolveTargetArnFromObject', () => BbPromise.resolve());
+
+      // ACT:
+      const act = () => plugin.resolveTargetArn('f1', 123);
+
+      // ASSERT:
+      expect(act).to.throwException();
+
+      expect(stubResolveTargetArnFromString.callCount).to.be.eql(0);
+      expect(stubResolveTargetArnFromObject.callCount).to.be.eql(0);
+    });
+
+
   });
 });
