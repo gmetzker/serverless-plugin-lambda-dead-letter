@@ -89,8 +89,6 @@ resources:
 ## TODO:
 
 - [ ] Unit tests
-- [ ] Code coverage
-- [ ] Grunt/Node:  Run Unit tests and code coverage automatically
 - [ ] Refactor to break into several files.
 - [ ] Add license file
 - [ ] Implement simplified syntax:
