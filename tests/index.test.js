@@ -29,14 +29,16 @@ describe('serverless-plugin-lambda-dead-letter', () => {
             Resources: {}
           }
         },
-        getAllFunctions: () => []
+        getAllFunctions: () => [],
+        getFunction: () => null
 
       },
       cli: { log: () => {
       } }
-       // cli: { log: function(val) {
-       //    process.stdout.write(val + '\n');
-       // } }
+      // cli: {
+      //   log: (val) => {
+      //     process.stdout.write(`${val} \n`);
+      //   } }
     };
 
     return serverless;
@@ -183,4 +185,201 @@ describe('serverless-plugin-lambda-dead-letter', () => {
     });
   });
 
+  describe('buildDeadLetterUpdateParams', () => {
+
+    it('can return nothing when deadLetter object is missing', () => {
+      // ARRANGE:
+
+      const stage = 'test1';
+      const region = 'us-west-42';
+      const logicalFuncName = 'F1Cool';
+      const actualFuncName = 'f1-cool';
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+
+      const stubGetFunction = sinon.stub(mockServerless.service, 'getFunction');
+      stubGetFunction.withArgs(logicalFuncName).returns({ name: actualFuncName });
+
+
+      const plugin = new Plugin(mockServerless, { stage, region });
+
+      const stubResolveTargetArnString = sinon.stub(plugin, 'resolveTargetArnString', () => BbPromise.resolve());
+
+      // ACT:
+      const actual = plugin.buildDeadLetterUpdateParams(logicalFuncName);
+
+      // ASSERT:
+      expect(isPromise(actual)).to.be(true);
+
+      return actual.then((targetArnString) => {
+
+        expect(stubResolveTargetArnString.callCount).to.be(0);
+        expect(targetArnString).to.be(undefined);
+
+      });
+
+    });
+
+    it('can throw an exception when deadLetter is present but targetArn property is missing', () => {
+      // ARRANGE:
+
+      const stage = 'test1';
+      const region = 'us-west-42';
+      const logicalFuncName = 'F1Cool';
+      const actualFuncName = 'f1-cool';
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+
+      const stubGetFunction = sinon.stub(mockServerless.service, 'getFunction');
+      stubGetFunction.withArgs(logicalFuncName).returns({
+        name: actualFuncName,
+        deadLetter: { }
+      });
+
+
+      const plugin = new Plugin(mockServerless, { stage, region });
+
+      const stubResolveTargetArnString = sinon.stub(plugin, 'resolveTargetArnString', () => BbPromise.resolve());
+
+      // ACT:
+      const act = () => plugin.buildDeadLetterUpdateParams(logicalFuncName);
+
+      // ASSERT:
+      expect(act).to.throwException();
+
+      expect(stubResolveTargetArnString.callCount).to.be(0);
+
+    });
+
+    it('can call resolveTargetArn and return params when targetArn is present', () => {
+      // ARRANGE:
+
+      const stage = 'test1';
+      const region = 'us-west-42';
+      const logicalFuncName = 'F1Cool';
+      const actualFuncName = 'f1-cool';
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+
+      const mockTargetArn = { someKey: 'someVal' };
+      const stubGetFunction = sinon.stub(mockServerless.service, 'getFunction');
+      stubGetFunction.withArgs(logicalFuncName).returns({
+        name: actualFuncName,
+        deadLetter: {
+          targetArn: mockTargetArn
+        }
+      });
+
+
+      const plugin = new Plugin(mockServerless, { stage, region });
+
+      const resolvedTargetArnStr = 'some-arn';
+      const stubResolveTargetArnString = sinon.stub(plugin, 'resolveTargetArnString', () => BbPromise.resolve(resolvedTargetArnStr));
+
+      // ACT:
+      const actual = plugin.buildDeadLetterUpdateParams(logicalFuncName);
+
+      // ASSERT:
+      expect(isPromise(actual)).to.be(true);
+
+      return actual.then((actualParams) => {
+
+        expect(stubResolveTargetArnString.callCount).to.be(1);
+        expect(stubResolveTargetArnString.withArgs(logicalFuncName, mockTargetArn)
+          .calledOnce).to.be(true);
+
+        expect(actualParams).to.eql({
+          FunctionName: actualFuncName,
+          DeadLetterConfig: {
+            TargetArn: resolvedTargetArnStr
+          }
+        });
+
+      });
+    });
+
+    it('can return params with empty targetArn', () => {
+      // ARRANGE:
+
+      const stage = 'test1';
+      const region = 'us-west-42';
+      const logicalFuncName = 'F1Cool';
+      const actualFuncName = 'f1-cool';
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+
+      const mockTargetArn = '';
+      const stubGetFunction = sinon.stub(mockServerless.service, 'getFunction');
+      stubGetFunction.withArgs(logicalFuncName).returns({
+        name: actualFuncName,
+        deadLetter: {
+          targetArn: mockTargetArn
+        }
+      });
+
+
+      const plugin = new Plugin(mockServerless, { stage, region });
+
+      const stubResolveTargetArnString = sinon.stub(plugin, 'resolveTargetArnString', () => BbPromise.resolve(''));
+
+      // ACT:
+      const actual = plugin.buildDeadLetterUpdateParams(logicalFuncName);
+
+      // ASSERT:
+      expect(isPromise(actual)).to.be(true);
+
+      return actual.then((actualParams) => {
+
+        expect(stubResolveTargetArnString.callCount).to.be(1);
+        expect(stubResolveTargetArnString.withArgs(logicalFuncName, mockTargetArn)
+          .calledOnce).to.be(true);
+
+        expect(actualParams).to.eql({
+          FunctionName: actualFuncName,
+          DeadLetterConfig: {
+            TargetArn: ''
+          }
+        });
+
+      });
+    });
+
+    it('will bubble exception if resolveTargetArnString throws an exception', () => {
+      // ARRANGE:
+
+      const stage = 'test1';
+      const region = 'us-west-42';
+      const logicalFuncName = 'F1Cool';
+      const actualFuncName = 'f1-cool';
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+
+      const mockTargetArn = '';
+      const stubGetFunction = sinon.stub(mockServerless.service, 'getFunction');
+      stubGetFunction.withArgs(logicalFuncName).returns({
+        name: actualFuncName,
+        deadLetter: {
+          targetArn: mockTargetArn
+        }
+      });
+
+
+      const plugin = new Plugin(mockServerless, { stage, region });
+
+      const stubResolveTargetArnString = sinon.stub(plugin, 'resolveTargetArnString');
+      stubResolveTargetArnString.throws(new Error('fail'));
+
+      // ACT:
+      const actual = plugin.buildDeadLetterUpdateParams(logicalFuncName);
+
+      // ASSERT:
+      expect(isPromise(actual)).to.be(true);
+
+      // Make sure we caught an exception.
+      return actual
+        .then(() => {
+          // Acceptance case, we should not get here.
+          expect().fail('exception did not appear to be thrown');
+        }, (e) => {
+          // Failure case, we should get here.
+          expect(e.message).to.equal('fail');
+        });
+
+    });
+  });
 });
