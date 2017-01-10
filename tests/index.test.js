@@ -11,7 +11,10 @@ describe('serverless-plugin-lambda-dead-letter', () => {
   function createMockServerless(requestFunc) {
 
     const provider = {
-      request: requestFunc
+      request: requestFunc,
+      naming: {
+        getStackName: () => 'MyCoolStack'
+      }
     };
 
     const serverless = {
@@ -647,6 +650,180 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
 
     });
+
+  });
+
+  describe('resolveTargetArnFromObject', () => {
+
+    it('can throw an exception when GetResourceArn property not present', () => {
+
+      // ARRANGE:
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const stubRequestFunc = sinon.stub(mockServerless.getProvider('aws'), 'request', () => BbPromise.resolve());
+
+      const plugin = new Plugin(mockServerless, { });
+
+      // ACT:
+      const act = () => plugin.resolveTargetArnFromObject('f1', {});
+
+      // ASSERT:
+
+      expect(act).to.throwException();
+      expect(stubRequestFunc.callCount).to.be(0);
+
+    });
+
+    it('can throw an exception when resource is not a Topic or Queue ', () => {
+
+      // ARRANGE:
+      const stage = 'test1';
+      const region = 'us-west-42';
+      const stackName = 'MyCoolStack';
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const stubRequestFunc = sinon.stub(mockServerless.getProvider('aws'), 'request', () => BbPromise.resolve({
+        StackResourceDetail: { ResourceType: 'AWS::SNS::Other' }
+      }));
+
+
+      const plugin = new Plugin(mockServerless, { stage, region });
+
+      // ACT:
+      const actual = plugin.resolveTargetArnFromObject('f1', { GetResourceArn: 'DingBat' });
+
+      // ASSERT:
+      expect(isPromise(actual)).to.be(true);
+
+      return actual.then(() => {
+        expect.fail('no exception thrown');
+      }, (e) => {
+        expect(e.message).to.contain('must be a queue or topic');
+
+        expect(stubRequestFunc.callCount).to.be(1);
+        expect(stubRequestFunc.calledWithExactly(
+          'CloudFormation', 'describeStackResource', {
+            StackName: stackName,
+            LogicalResourceId: 'DingBat'
+          }, stage, region));
+
+      });
+
+
+    });
+
+    it('can return topic arn when resource is Topic', () => {
+
+      // ARRANGE:
+      const stage = 'test1';
+      const region = 'us-west-42';
+      const stackName = 'MyCoolStack';
+      const topicArn = 'arn:aws:sns:us-west-2:123456789012:my-topic';
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const stubRequestFunc = sinon.stub(mockServerless.getProvider('aws'), 'request', () => BbPromise.resolve({
+        StackResourceDetail: {
+          ResourceType: 'AWS::SNS::Topic',
+          PhysicalResourceId: topicArn
+        }
+      }));
+
+
+      const plugin = new Plugin(mockServerless, { stage, region });
+
+      // ACT:
+      const actual = plugin.resolveTargetArnFromObject('f1', { GetResourceArn: 'DingBat' });
+
+      // ASSERT:
+      expect(isPromise(actual)).to.be(true);
+
+      return actual.then((targetArnString) => {
+        expect(targetArnString).to.be(topicArn);
+        expect(stubRequestFunc.callCount).to.be(1);
+        expect(stubRequestFunc.calledWithExactly(
+          'CloudFormation', 'describeStackResource', {
+            StackName: stackName,
+            LogicalResourceId: 'DingBat'
+          }, stage, region));
+
+      });
+
+
+    });
+
+    it('can return topic arn when resource is Topic', () => {
+
+      // ARRANGE:
+      const stage = 'test1';
+      const region = 'us-west-42';
+      const stackName = 'MyCoolStack';
+      const topicArn = 'arn:aws:sns:us-west-2:123456789012:my-topic';
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const stubRequestFunc = sinon.stub(mockServerless.getProvider('aws'), 'request', () => BbPromise.resolve({
+        StackResourceDetail: {
+          ResourceType: 'AWS::SNS::Topic',
+          PhysicalResourceId: topicArn
+        }
+      }));
+
+
+      const plugin = new Plugin(mockServerless, { stage, region });
+
+      // ACT:
+      const actual = plugin.resolveTargetArnFromObject('f1', { GetResourceArn: 'DingBat' });
+
+      // ASSERT:
+      expect(isPromise(actual)).to.be(true);
+
+      return actual.then((targetArnString) => {
+        expect(targetArnString).to.be(topicArn);
+        expect(stubRequestFunc.callCount).to.be(1);
+        expect(stubRequestFunc.calledWithExactly(
+          'CloudFormation', 'describeStackResource', {
+            StackName: stackName,
+            LogicalResourceId: 'DingBat'
+          }, stage, region));
+
+      });
+
+
+    });
+
+    it('can return topic arn when resource is Queue', () => {
+
+      // ARRANGE:
+      const stage = 'test1';
+      const region = 'us-west-42';
+      const stackName = 'MyCoolStack';
+      const queueArn = 'arn:aws:sqs:us-west-2:123456789012:my-queue';
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const stubRequestFunc = sinon.stub(mockServerless.getProvider('aws'), 'request', () => BbPromise.resolve({
+        StackResourceDetail: {
+          ResourceType: 'AWS::SQS::Queue',
+          PhysicalResourceId: 'https://sqs.us-west-2.amazonaws.com/123456789012/my-queue'
+        }
+      }));
+
+
+      const plugin = new Plugin(mockServerless, { stage, region });
+
+      // ACT:
+      const actual = plugin.resolveTargetArnFromObject('f1', { GetResourceArn: 'DingBat' });
+
+      // ASSERT:
+      expect(isPromise(actual)).to.be(true);
+
+      return actual.then((targetArnString) => {
+        expect(targetArnString).to.be(queueArn);
+        expect(stubRequestFunc.callCount).to.be(1);
+        expect(stubRequestFunc.calledWithExactly(
+          'CloudFormation', 'describeStackResource', {
+            StackName: stackName,
+            LogicalResourceId: 'DingBat'
+          }, stage, region));
+
+      });
+
+
+    });
+
 
   });
 });

@@ -79,7 +79,7 @@ class Plugin {
 
     const stackName = this.provider.naming.getStackName();
 
-    this.serverless.cli.log(`Stackname: ${stackName}`);
+   // this.serverless.cli.log(`Stackname: ${stackName}`);
 
     const params = {
       StackName: stackName,
