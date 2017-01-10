@@ -12,7 +12,7 @@ At the time this plugin was developed AWS Cloudformation (and serverless) did no
 
 Install the plugin with npm and reference it in the serverless yaml file [as documented here.](https://serverless.com/framework/docs/providers/aws/guide/plugins/)
 
-```
+```YAML
 # serverless.yml file
 
 plugins:
@@ -34,7 +34,7 @@ There are several methods to configure the Lambda deadLetterConfig.
 Use the `targetArn` property to specify the exact SQS queue or SNS topic to use for Lambda dead letter messages.  In this case the queue\topic must already exist as must the queue\topic policy.
 
 Reference the ARN of an existing queue `createUser-dl-queue`
-```
+```YAML
 # 'functions' in serverless.yml
 
 functions:
@@ -49,7 +49,7 @@ functions:
 If you created a queue\topic in the `resource` section you can reference it using the `GetResourceArn` pseudo method.  
 
 This will use the arn of the resource referenced by `{logicalId}`
-```
+```YAML
     deadLetter:
       targetArn:
         GetResourceArn: {logicalId}
@@ -60,7 +60,7 @@ Note:
 
 In this example the `createUser` lambda function is using the new `CreateUserDeadLetterQueue` SQS queue defined in the resources section.
 
-```
+```YAML
 # 'functions' in serverless.yml
 
 functions:
@@ -93,7 +93,7 @@ resources:
 ### Remove DeadLetter Resource
 If you previously had a DeadLetter target and want to remove it such that there is no dead letter queue or topic you can supply the `deadLetter` object with an empty `targetArn`.  Upon deploy the plugin will run the Lambda `UpdateFunctionConfiguration` and set an empty TargetArn.
 
-```
+```YAML
 # 'functions' in serverless.yml
 
 functions:
@@ -119,12 +119,12 @@ functions:
     - Adds DeadLetterConfig afterward with call to `UpdateFunctionConfiguration`
 
     Future:
-    ```
+    ```YAML
     deadLetter:
       targetQueue: {name of new SQS Queue}
     ```
 
-    ```
+    ```YAML
     deadLetter:
       targetTopic: {name of new SNS Topic}
     ```
