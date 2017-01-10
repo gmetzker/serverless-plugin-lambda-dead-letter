@@ -16,7 +16,7 @@ Install the plugin with npm and reference it in the serverless yaml file [as doc
 # serverless.yml file
 
 plugins:
-  - serverless-plugin-lambda-dead-letter
+  - hli-serverless-plugin-lambda-dead-letter
 ```
 
 ## How do I use it?
