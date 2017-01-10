@@ -23,7 +23,9 @@ plugins:
 
 Dead letter settings are assigned via a new `deadLetter` property nested under a function in a `serverless.yml` file.  The property name `deadLetter` was used rather than `deadLetterConfig` so that future internal implementations of `deadLetterConfig`, that will most likely be directly supported by CloudFormation natively, will not conflict.
 
-There are several ways to inform the plugin how you want to wire up the DLQ.
+There are methods to inform the plugin how you want to wire up the DLQ.
+
+You can also set an empty targetArn to remove a previously set deadLetter DLQ:  [Remove Dead Letter Resource](#remove-deadletter-resource)
 
 ### Method-1
 Use the `targetArn` property to specify the exact SQS queue or SNS topic to use for Lambda dead letter messages.  In this case the queue\topic must already exist as must the queue\topic policy.
@@ -85,10 +87,28 @@ resources:
             # Policy properties abbreviated but you need more here ...
 ```
 
+### Remove DeadLetter Resource
+If you previously had a DeadLetter target and want to remove it such that there is no dead letter queue or topic you can supply the `deadLetter` object with an empty `targetArn`.  Upon deploy the plugin will run the Lambda `UpdateFunctionConfiguration` and set an empty TargetArn.
+
+```
+# 'functions' in serverless.yml
+
+functions:
+  createUser: # Function name
+
+    handler: handler.createUser # Reference to function 'createUser' in code
+
+    # ...
+
+    # Set an empty targetArn to erase previous DLQ settings.
+    deadLetter:
+      targetArn:
+```
+
+
 
 ## TODO:
 
-- [ ] Unit tests
 - [ ] Refactor to break into several files.
 - [ ] Add license file
 - [ ] Implement simplified syntax:
