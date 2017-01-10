@@ -1,5 +1,5 @@
 {
-  "name": "serverless-plugin-lambda-dead-letter",
+  "name": "hli-serverless-plugin-lambda-dead-letter",
   "version": "1.0.0",
   "description": "Plugin for serverless to set the DeadLetterConfig for lambda functions",
   "main": "src/index.js",
