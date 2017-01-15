@@ -28,7 +28,7 @@ There are several methods to configure the Lambda deadLetterConfig.
 * [Method-1](#method-1):  Use a pre-existing queue/topic.
 * [Method-2](#method-2):  Use a queue/topic created in the resources.
 * [Remove Dead Letter Resource](#remove-deadletter-resource):  Remove any deadletter queue/topic that was previously assigned.
- 
+
 
 ### Method-1
 Use the `targetArn` property to specify the exact SQS queue or SNS topic to use for Lambda dead letter messages.  In this case the queue\topic must already exist as must the queue\topic policy.
@@ -107,24 +107,3 @@ functions:
     deadLetter:
       targetArn:
 ```
-
-
-
-## TODO:
-
-- [ ] Refactor to break into several files.
-- [ ] Add license file
-- [ ] Implement simplified syntax:
-    - Compiles new Queue/Topic into CF template and adds Queue/Topic Policy such that Lambda function can write to it.
-    - Adds DeadLetterConfig afterward with call to `UpdateFunctionConfiguration`
-
-    Future:
-    ```YAML
-    deadLetter:
-      targetQueue: {name of new SQS Queue}
-    ```
-
-    ```YAML
-    deadLetter:
-      targetTopic: {name of new SNS Topic}
-    ```
