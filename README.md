@@ -2,8 +2,8 @@
 
 [![Build Status](https://travis-ci.org/gmetzker/serverless-plugin-lambda-dead-letter.svg?branch=master)](https://travis-ci.org/gmetzker/serverless-plugin-lambda-dead-letter)
 [![Coverage Status](https://coveralls.io/repos/github/gmetzker/serverless-plugin-lambda-dead-letter/badge.svg?branch=master)](https://coveralls.io/github/gmetzker/serverless-plugin-lambda-dead-letter?branch=master)
-[![Dependency Status](https://img.shields.io/david/strongloop/express.svg)](https://david-dm.org/gmetzker/serverless-plugin-lambda-dead-letter)
-[![Dev Dependency Status](https://img.shields.io/david/dev/strongloop/express.svg?style=plastic)](https://david-dm.org/gmetzker/serverless-plugin-lambda-dead-letter?type=dev)
+[![dependencies Status](https://david-dm.org/gmetzker/serverless-plugin-lambda-dead-letter/status.svg)](https://david-dm.org/gmetzker/serverless-plugin-lambda-dead-letter)
+[![devDependencies Status](https://david-dm.org/gmetzker/serverless-plugin-lambda-dead-letter/dev-status.svg)](https://david-dm.org/gmetzker/serverless-plugin-lambda-dead-letter?type=dev)
 
 ## What is it?
 
