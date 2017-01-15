@@ -23,6 +23,7 @@
     "bluebird": "^3.4.7"
   },
   "devDependencies": {
+    "coveralls": "^2.11.15",
     "eslint": "^3.12.2",
     "eslint-config-airbnb-base": "^11.0.0",
     "eslint-plugin-import": "^2.2.0",
