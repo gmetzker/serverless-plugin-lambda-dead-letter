@@ -1,6 +1,6 @@
 {
   "name": "serverless-plugin-lambda-dead-letter",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "serverless plugin that can configure a lambda with a dead letter queue or topic",
   "main": "src/index.js",
   "scripts": {
@@ -20,11 +20,23 @@
     "url": "https://github.com/gmetzker/serverless-plugin-lambda-dead-letter/issues"
   },
   "keywords": [
-    "serverless plugin dead letter",
-    "DeadLetterConfig",
     "serverless",
+    "serverless framework",
+    "serverless plugin",
+    "serverless plugins",
     "lambda",
-    "aws"
+    "aws",
+    "aws lambda",
+    "amazon",
+    "amazon web services",
+    "dead letter",
+    "dead letter config",
+    "DeadLetterConfig",
+    "sqs queue",
+    "queue",
+    "DLQ",
+    "sns topic",
+    "topic"
   ],
   "dependencies": {
     "bluebird": "^3.4.7"
@@ -43,24 +55,5 @@
   },
   "files": [
     "src"
-  ],
-  "keywords": [
-    "serverless",
-    "serverless framework",
-    "serverless plugin",
-    "serverless plugins",
-    "lambda",
-    "aws",
-    "aws lambda",
-    "amazon",
-    "amazon web services",
-    "dead letter",
-    "dead letter config",
-    "DeadLetterConfig",
-    "sqs queue",
-    "queue",
-    "DLQ",
-    "sns topic",
-    "topic"
   ]
 }
