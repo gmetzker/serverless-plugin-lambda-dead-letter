@@ -1,8 +1,9 @@
 language: node_js
 
 node_js:
-  - "4"
+  - "4.0"
   - "6"
+  - "7"
 
 # For code coverage:
 after_success:
