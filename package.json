@@ -1,6 +1,6 @@
 {
   "name": "serverless-plugin-lambda-dead-letter",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "serverless plugin that can configure a lambda with a dead letter queue or topic",
   "main": "src/index.js",
   "scripts": {
