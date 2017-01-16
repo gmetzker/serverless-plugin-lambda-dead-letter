@@ -1,16 +1,23 @@
 {
-  "name": "hli-serverless-plugin-lambda-dead-letter",
+  "name": "serverless-plugin-lambda-dead-letter",
   "version": "1.0.0",
-  "description": "Plugin for serverless to set the DeadLetterConfig for lambda functions",
+  "description": "serverless plugin that can configure a lambda with a dead letter queue or topic",
   "main": "src/index.js",
   "scripts": {
     "test": "grunt standards && ./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha -- -R spec 'tests/**/*.test.js'"
   },
+  "engines": {
+    "node": ">=4.0"
+  },
   "author": "Gary Metzker",
   "license": "MIT",
+  "homepage": "https://github.com/gmetzker/serverless-plugin-lambda-dead-letter#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.hli.io/HLI/serverless-plugin-lambda-dead-letter.gite"
+    "url": "https://github.com/gmetzker/serverless-plugin-lambda-dead-letter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gmetzker/serverless-plugin-lambda-dead-letter/issues"
   },
   "keywords": [
     "serverless plugin dead letter",
@@ -33,5 +40,27 @@
     "istanbul": "^0.4.5",
     "mocha": "^3.2.0",
     "sinon": "^1.17.7"
-  }
+  },
+  "files": [
+    "src"
+  ],
+  "keywords": [
+    "serverless",
+    "serverless framework",
+    "serverless plugin",
+    "serverless plugins",
+    "lambda",
+    "aws",
+    "aws lambda",
+    "amazon",
+    "amazon web services",
+    "dead letter",
+    "dead letter config",
+    "DeadLetterConfig",
+    "sqs queue",
+    "queue",
+    "DLQ",
+    "sns topic",
+    "topic"
+  ]
 }

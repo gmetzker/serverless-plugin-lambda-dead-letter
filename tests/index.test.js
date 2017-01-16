@@ -1,4 +1,4 @@
-
+'use strict';
 
 const expect = require('expect.js');
 const Plugin = require('../src/index.js');
@@ -50,10 +50,11 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
   function createMockRequest(requestStub) {
 
-    return (...reqArgs) =>
+    return () => {
 
-      new BbPromise((resolve, reject) => {
-        const result = requestStub(...reqArgs);
+      const reqArgs = Array.prototype.slice.call(arguments);
+      return new BbPromise((resolve, reject) => {
+        const result = requestStub.apply(undefined, reqArgs);
         if (result !== null) {
           resolve(result);
           return;
@@ -61,6 +62,7 @@ describe('serverless-plugin-lambda-dead-letter', () => {
         reject(new Error(`Call to request() with unexpected arguments:  ${JSON.stringify(reqArgs)}`));
 
       });
+    };
 
 
   }
