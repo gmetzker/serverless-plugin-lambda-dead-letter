@@ -1,7 +1,8 @@
 # Serverless Plugin:  Lambda DeadLetterConfig
 
 [![serverless](http://public.serverless.com/badges/v3.svg)](http://www.serverless.com)
-[![npm version](https://badge.fury.io/js/serverless-plugin-lambda-dead-letter.svg)](https://www.npmjs.com/package/serverless-plugin-lambda-dead-letter)
+[![npm version](https://img.shields.io/npm/v/serverless-plugin-lambda-dead-letter.svg)](https://www.npmjs.com/package/serverless-plugin-lambda-dead-letter)
+
 
 [![Build Status](https://travis-ci.org/gmetzker/serverless-plugin-lambda-dead-letter.svg?branch=master)](https://travis-ci.org/gmetzker/serverless-plugin-lambda-dead-letter)
 [![Coverage Status](https://coveralls.io/repos/github/gmetzker/serverless-plugin-lambda-dead-letter/badge.svg?branch=master)](https://coveralls.io/github/gmetzker/serverless-plugin-lambda-dead-letter?branch=master)
