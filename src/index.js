@@ -79,9 +79,15 @@ class Plugin {
       throw new Error(`Function property ${functionName}.deadLetter.targetArn object is missing GetResourceArn property.`);
     }
 
-    const stackName = this.provider.naming.getStackName();
+    if (!this.deploy) {
+      // If noDeploy options is set then there is no guarantee that the stack exists
+      // and no guarantee that the serverless.yml even matches the a previously deploy stack.
+      // So instead of returning the real arn we'll return a string that
+      // can be used for logging but not an actual ARN.
+      return BbPromise.resolve(`\${GetResourceArn: ${targetArn.GetResourceArn}}`);
+    }
 
-   // this.serverless.cli.log(`Stackname: ${stackName}`);
+    const stackName = this.provider.naming.getStackName();
 
     const params = {
       StackName: stackName,
@@ -160,7 +166,7 @@ class Plugin {
         return updateStep.then(() => {
 
           this.serverless.cli.log(`${logPrefix} Function '${functionName}' ` +
-              `DeadLetterConfig.TargetArn: '${arnStr}'`);
+              `DeadLetterConfig.TargetArn: ${arnStr}`);
         });
 
       }));
