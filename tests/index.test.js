@@ -188,6 +188,57 @@ describe('serverless-plugin-lambda-dead-letter', () => {
       });
 
     });
+
+    it('does not call updateFunctionConfiguration if noDeploy option set', () => {
+
+      // ARRANGE:
+
+      const stage = 'test1';
+      const region = 'us-west-42';
+
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+
+      sinon.stub(mockServerless.service, 'getAllFunctions', () => ['f1', 'f2', 'f3']);
+      const stubRequestFunc = sinon.stub(mockServerless.getProvider('aws'), 'request', () => BbPromise.resolve());
+
+      const options = { stage, region, noDeploy: true };
+      const plugin = new Plugin(mockServerless, options);
+
+      const stubBuildDeadLetterUpdateParams = sinon.stub(plugin, 'buildDeadLetterUpdateParams');
+
+      const dlF1 = createUpdateParams('f1', 'arn:aws:sns:us-west-2:123456789012:f1-dlt');
+      const dlF2 = null;
+      const dlF3 = createUpdateParams('f3', 'arn:aws:sqs:us-west-2:123456789012:f3-dlq');
+
+      stubBuildDeadLetterUpdateParams.withArgs('f1').returns(BbPromise.resolve(dlF1));
+      stubBuildDeadLetterUpdateParams.withArgs('f2').returns(BbPromise.resolve(dlF2));
+      stubBuildDeadLetterUpdateParams.withArgs('f3').returns(BbPromise.resolve(dlF3));
+
+
+      // ACT:
+      const actual = plugin.setLambdaDeadLetterConfig();
+
+      // ASSERT:
+      expect(isPromise(actual)).to.be(true);
+
+      return actual.then(() => {
+
+        expect(stubBuildDeadLetterUpdateParams.callCount).to.be(3);
+        expect(stubBuildDeadLetterUpdateParams.firstCall.args[0]).to.be('f1');
+        expect(stubBuildDeadLetterUpdateParams.secondCall.args[0]).to.be('f2');
+        expect(stubBuildDeadLetterUpdateParams.thirdCall.args[0]).to.be('f3');
+
+        expect(stubRequestFunc.callCount).to.be(0);
+
+        // expect(stubRequestFunc.withArgs('Lambda', 'updateFunctionConfiguration',
+        //   dlF1, stage, region).calledOnce);
+        //
+        // expect(stubRequestFunc.withArgs('Lambda', 'updateFunctionConfiguration',
+        //   dlF3, stage, region).calledOnce);
+
+      });
+
+    });
   });
 
   describe('buildDeadLetterUpdateParams', () => {
@@ -820,6 +871,34 @@ describe('serverless-plugin-lambda-dead-letter', () => {
             StackName: stackName,
             LogicalResourceId: 'DingBat'
           }, stage, region));
+
+      });
+
+
+    });
+
+    it('cannot resolve target ARN when noDeploy is true', () => {
+
+      // ARRANGE:
+      const stage = 'test1';
+      const region = 'us-west-42';
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const stubRequestFunc = sinon.stub(mockServerless.getProvider('aws'), 'request', () => BbPromise.resolve());
+
+
+      const plugin = new Plugin(mockServerless, { stage, region, noDeploy: true });
+
+      // ACT:
+      const logicalResourceId = 'DingBat';
+      const actual = plugin.resolveTargetArnFromObject('f1', { GetResourceArn: logicalResourceId });
+
+      // ASSERT:
+      expect(isPromise(actual)).to.be(true);
+
+      return actual.then((targetArnString) => {
+
+        expect(targetArnString).to.be(`\${GetResourceArn: ${logicalResourceId}}`);
+        expect(stubRequestFunc.callCount).to.be(0);
 
       });
 
