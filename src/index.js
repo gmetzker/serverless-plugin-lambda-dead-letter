@@ -9,6 +9,7 @@ class Plugin {
     this.serverless = serverless;
     this.options = options;
     this.provider = serverless.getProvider('aws');
+    this.deploy = options.noDeploy === undefined ? true : !options.noDeploy;
 
     this.hooks = {
 
@@ -114,8 +115,6 @@ class Plugin {
 
     const functionObj = this.serverless.service.getFunction(functionName);
 
-    this.serverless.cli.log(`** Function:  ${functionName}`);
-
     if (!functionObj.deadLetter) {
       return BbPromise.resolve();
     }
@@ -145,16 +144,25 @@ class Plugin {
           return BbPromise.resolve();
         }
 
-        return this.provider.request('Lambda', 'updateFunctionConfiguration',
-          deadLetterUpdateParams, this.options.stage, this.options.region)
-          .then(() => {
+        const arnStr = deadLetterUpdateParams.DeadLetterConfig.TargetArn || '{none}';
+        let logPrefix;
+        let updateStep;
 
-            const arnStr = deadLetterUpdateParams.DeadLetterConfig.TargetArn || '{none}';
+        if (this.deploy) {
+          logPrefix = '(updated)';
+          updateStep = this.provider.request('Lambda', 'updateFunctionConfiguration',
+            deadLetterUpdateParams, this.options.stage, this.options.region);
+        } else {
+          logPrefix = '(noDeploy)';
+          updateStep = BbPromise.resolve();
+        }
 
-            this.serverless.cli.log(`Function '${functionName}' ` +
-              `DeadLetterConfig assigned TargetArn: '${arnStr}'`);
+        return updateStep.then(() => {
 
-          });
+          this.serverless.cli.log(`${logPrefix} Function '${functionName}' ` +
+              `DeadLetterConfig.TargetArn: '${arnStr}'`);
+        });
+
       }));
   }
 
