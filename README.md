@@ -13,7 +13,7 @@
 
 A [serverless](https://serverless.com/) plugin that can assign a `DeadLetterConfig` to a Lambda function and optionally create a new SQS queue or SNS Topic with a simple syntax.
 
-Failed asynchronous messages for Amazon Lambda can be be sent to an SQS queue or SNS topic by setting the `DeadLetterConfig`.  Lambda Dead Letter Queues [are documented here](http://docs.aws.amazon.com/lambda/latest/dg/dlq.html).  
+Failed asynchronous messages for Amazon Lambda can be be sent to an SQS queue or an SNS topic by setting the `DeadLetterConfig`.  Lambda Dead Letter Queues [are documented here](http://docs.aws.amazon.com/lambda/latest/dg/dlq.html).  
 
 At the time this plugin was developed AWS Cloudformation (and serverless) did not support the `DeadLetterConfig` property of the Lambda so we have introduced a plugin that calls `UpdateFunctionConfiguration` on the lambda after serverless deploys the CloudFormation stack.
 
