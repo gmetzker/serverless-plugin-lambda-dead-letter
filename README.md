@@ -40,7 +40,7 @@ There are several methods to configure the Lambda deadLetterConfig.
 * [Remove Dead Letter Resource](#remove-deadletter-resource):  Remove any deadletter queue/topic that was previously assigned.
 
 ### Method-1
-Use the 'deadLetter.sqs' to create a new dead letter queue for the function.  
+Use the `deadLetter.sqs` to create a new dead letter queue for the function.  
 
 This will add a new SQS Queue and QueuePolicy to the serverless cloudformation stack.  After the CF stack is deployed a call is made to `UpdateFunctionConfiguration` to assign the `DeadLetterConfig.TargetArn` using the arn of the new queue.
 
