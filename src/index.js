@@ -16,6 +16,9 @@ class Plugin {
       'deploy:deploy': () => BbPromise.bind(this)
         .then(this.setLambdaDeadLetterConfig),
 
+      'deploy:compileEvents': () => BbPromise.bind(this)
+        .then(this.compileFunctionDeadLetterResources),
+
 
       'setLambdaDeadLetterConfig:setLambdaDeadLetterConfig': () => BbPromise.bind(this)
         .then(this.setLambdaDeadLetterConfig)
@@ -31,13 +34,26 @@ class Plugin {
 
   }
 
-  resolveTargetArn(functionName, targetArn) {
+  resolveTargetArn(functionName, deadLetter) {
 
-    if (targetArn === undefined) {
+    if (deadLetter.sqs === undefined &&
+        deadLetter.targetArn === undefined) {
+      throw new Error(`Function: ${functionName}.deadLetter is missing one of the following properties: [targetArn, sqs]`);
+    }
 
-      throw new Error(`Function: ${functionName} is missing 'targetArn' value.`);
+    if (deadLetter.sqs !== undefined &&
+        deadLetter.targetArn !== undefined) {
+      throw new Error(`Function: ${functionName}.deadLetter can only have one of the following properties: [targetArn, sqs]`);
+    }
 
-    } else if (targetArn === null) {
+    if (deadLetter.sqs !== undefined) {
+      return this.resolveTargetArnFromObject(functionName, {
+        GetResourceArn: `${Plugin.normalize(functionName)}DeadLetterQueue`
+      });
+    }
+
+    const targetArn = deadLetter.targetArn;
+    if (targetArn === null) {
 
       return BbPromise.resolve('');
 
@@ -124,12 +140,10 @@ class Plugin {
     if (!functionObj.deadLetter) {
       return BbPromise.resolve();
     }
-    if (functionObj.deadLetter.targetArn === undefined) {
-      throw new Error(`Function: ${functionName} is missing 'targetArn' value.`);
-    }
+
     return BbPromise.bind(this)
 
-      .then(() => this.resolveTargetArn(functionName, functionObj.deadLetter.targetArn))
+      .then(() => this.resolveTargetArn(functionName, functionObj.deadLetter))
 
       .then(targetArnString => BbPromise.resolve({
         FunctionName: functionObj.name,
@@ -180,6 +194,91 @@ class Plugin {
     const queueName = tokens[2];
 
     return ['arn', 'aws', 'sqs', region, account, queueName].join(':');
+  }
+
+  compileFunctionDeadLetterResources() {
+    return BbPromise.mapSeries(this.serverless.service.getAllFunctions(), (functionName) => {
+
+      const functionObj = this.serverless.service.getFunction(functionName);
+
+      if (functionObj.deadLetter === undefined) {
+        return BbPromise.resolve();
+      }
+      if (functionObj.deadLetter.sqs !== undefined) {
+        return this.compileFunctionDeadLetterQueue(functionName,
+          functionObj.deadLetter.sqs);
+      }
+
+      return BbPromise.resolve();
+
+    });
+
+
+  }
+
+  static normalize(s) {
+    if (s === undefined || s === '') {
+      return '';
+    }
+
+    return s[0].toUpperCase() + s.substr(1);
+  }
+
+  static normalizeResourceName(name) {
+    return Plugin.normalize(name.replace(/[^0-9A-Za-z]/g, ''));
+  }
+
+
+  compileFunctionDeadLetterQueue(functionName, queueConfig) {
+
+    if (typeof queueConfig !== 'string') {
+      throw new Error(`Function property ${functionName}.deadLetter.sqs is an unexpected type.  This must be a or string.`);
+    }
+
+    const queueName = queueConfig;
+
+    const normalizedFnName = Plugin.normalize(functionName);
+    const queueLogicalId = `${normalizedFnName}DeadLetterQueue`;
+    const queuePolicyLogicalId = `${normalizedFnName}DeadLetterQueuePolicy`;
+    const resources = this.serverless.service.provider.compiledCloudFormationTemplate.Resources;
+
+    const queueResource = {
+      Type: 'AWS::SQS::Queue',
+      Properties: {
+        QueueName: queueName
+      }
+    };
+
+    const queuePolicyResource = {
+      Type: 'AWS::SQS::QueuePolicy',
+      Properties: {
+        Queues: [{
+          Ref: queueLogicalId
+        }],
+        PolicyDocument: {
+          Id: { 'Fn::Join': ['', [{ 'Fn::GetAtt': [queueLogicalId, 'Arn'] }, '/SQSDefaultPolicy']] },
+          Version: '2012-10-17',
+          Statement: [{
+            Sid: 'Allow-Lambda-SendMessage',
+            Effect: 'Allow',
+            Principal: { AWS: '*' },
+            Action: ['SQS:SendMessage'],
+
+            Resource: { 'Fn::GetAtt': [queueLogicalId, 'Arn'] },
+            Condition: {
+              ArnEquals: {
+                'aws:SourceArn': {
+                  'Fn::GetAtt': [`${normalizedFnName}LambdaFunction`, 'Arn']
+                }
+              }
+            }
+          }]
+        }
+      }
+    };
+
+    resources[queueLogicalId] = queueResource;
+    resources[queuePolicyLogicalId] = queuePolicyResource;
   }
 
 }
