@@ -427,7 +427,7 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
     });
 
-    it('can throw an exception when more than one deadLetter target defined', () => {
+    it('can throw an exception when deadLetter targetArn and sqs are defined', () => {
 
       // ARRANGE:
       const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
@@ -438,6 +438,44 @@ describe('serverless-plugin-lambda-dead-letter', () => {
       const act = () => plugin.resolveTargetArn('f1', {
         targetArn: 'arn::something',
         sqs: 'somequeue'
+      });
+
+      // ASSERT:
+      expect(act).throwException();
+
+
+    });
+
+    it('can throw an exception when deadLetter targetArn and sns are defined', () => {
+
+      // ARRANGE:
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const plugin = new Plugin(mockServerless, { });
+
+
+      // ACT:
+      const act = () => plugin.resolveTargetArn('f1', {
+        targetArn: 'arn::something',
+        sns: 'sometopic'
+      });
+
+      // ASSERT:
+      expect(act).throwException();
+
+
+    });
+
+    it('can throw an exception when deadLetter sqs and sns are defined', () => {
+
+      // ARRANGE:
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const plugin = new Plugin(mockServerless, { });
+
+
+      // ACT:
+      const act = () => plugin.resolveTargetArn('f1', {
+        sqs: 'somequeue',
+        sns: 'sometopic'
       });
 
       // ASSERT:
@@ -469,6 +507,38 @@ describe('serverless-plugin-lambda-dead-letter', () => {
         expect(stubResolveTargetArnFromObject.callCount).to.be(1);
         expect(stubResolveTargetArnFromObject.calledWithExactly('f1', {
           GetResourceArn: 'F1DeadLetterQueue'
+        })).to.be(true);
+
+        expect(stubResolveTargetArnFromString.callCount).to.be.eql(0);
+
+
+      });
+
+    });
+
+    it('can call resolveTargetArnFromObject if sns is supplied', () => {
+
+      // ARRANGE:
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const plugin = new Plugin(mockServerless, { });
+
+      const stubResolveTargetArnFromString = sinon.stub(plugin, 'resolveTargetArnFromString', () => BbPromise.resolve());
+      const stubResolveTargetArnFromObject = sinon.stub(plugin, 'resolveTargetArnFromObject', () => BbPromise.resolve('arn:cool'));
+
+
+      // ACT:
+      const actual = plugin.resolveTargetArn('f1', { sns: 'myTopic' });
+
+      // ASSERT:
+      expect(isPromise(actual)).to.be(true);
+
+      return actual.then((arnString) => {
+
+        expect(arnString).to.be('arn:cool');
+
+        expect(stubResolveTargetArnFromObject.callCount).to.be(1);
+        expect(stubResolveTargetArnFromObject.calledWithExactly('f1', {
+          GetResourceArn: 'F1DeadLetterTopic'
         })).to.be(true);
 
         expect(stubResolveTargetArnFromString.callCount).to.be.eql(0);
@@ -964,7 +1034,7 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
     });
 
-    it('does not call compileFunctionDeadLetterQueue if deadLetter.sqs is not defined', () => {
+    it('does not call compile new resources if deadLetter.targetArn is defined', () => {
 
       // ARRANGE:
 
@@ -983,6 +1053,7 @@ describe('serverless-plugin-lambda-dead-letter', () => {
       const plugin = new Plugin(mockServerless, { stage, region });
 
       const stubCompileFunctionDeadLetterQueue = sinon.stub(plugin, 'compileFunctionDeadLetterQueue');
+      const stubCompileFunctionDeadLetterTopic = sinon.stub(plugin, 'compileFunctionDeadLetterTopic');
 
       // ACT:
       const actual = plugin.compileFunctionDeadLetterResources();
@@ -994,6 +1065,8 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
         expect(stubGetFunction.callCount).to.be(2);
         expect(stubCompileFunctionDeadLetterQueue.callCount).to.be(0);
+        expect(stubCompileFunctionDeadLetterTopic.callCount).to.be(0);
+
 
       });
 
@@ -1019,6 +1092,7 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
       const stubCompileFunctionDeadLetterQueue = sinon.stub(plugin, 'compileFunctionDeadLetterQueue');
       stubCompileFunctionDeadLetterQueue.returns(BbPromise.resolve());
+      const stubCompileFunctionDeadLetterTopic = sinon.stub(plugin, 'compileFunctionDeadLetterTopic');
 
       // ACT:
       const actual = plugin.compileFunctionDeadLetterResources();
@@ -1034,6 +1108,52 @@ describe('serverless-plugin-lambda-dead-letter', () => {
         expect(stubCompileFunctionDeadLetterQueue.firstCall.args[1]).to.be('myqueue1');
         expect(stubCompileFunctionDeadLetterQueue.secondCall.args[0]).to.be('f2');
         expect(stubCompileFunctionDeadLetterQueue.secondCall.args[1]).to.be('myqueue2');
+
+        expect(stubCompileFunctionDeadLetterTopic.callCount).to.be(0);
+
+      });
+
+    });
+
+    it('calls compileFunctionDeadLetterTopic if deadLetter.sns is defined', () => {
+
+      // ARRANGE:
+
+      const stage = 'test1';
+      const region = 'us-west-42';
+
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+
+      sinon.stub(mockServerless.service, 'getAllFunctions', () => ['f1', 'f2']);
+
+      const stubGetFunction = sinon.stub(mockServerless.service, 'getFunction');
+      stubGetFunction.withArgs('f1').returns({ name: 'f1', deadLetter: { sns: 'mytopic1' } });
+      stubGetFunction.withArgs('f2').returns({ name: 'f2', deadLetter: { sns: 'mytopic2' } });
+
+
+      const plugin = new Plugin(mockServerless, { stage, region });
+
+      const stubCompileFunctionDeadLetterQueue = sinon.stub(plugin, 'compileFunctionDeadLetterQueue');
+      stubCompileFunctionDeadLetterQueue.returns(BbPromise.resolve());
+      const stubCompileFunctionDeadLetterTopic = sinon.stub(plugin, 'compileFunctionDeadLetterTopic');
+      stubCompileFunctionDeadLetterTopic.returns(BbPromise.resolve());
+
+      // ACT:
+      const actual = plugin.compileFunctionDeadLetterResources();
+
+      // ASSERT:
+      expect(isPromise(actual)).to.be(true);
+
+      return actual.then(() => {
+
+        expect(stubGetFunction.callCount).to.be(2);
+        expect(stubCompileFunctionDeadLetterTopic.callCount).to.be(2);
+        expect(stubCompileFunctionDeadLetterTopic.firstCall.args[0]).to.be('f1');
+        expect(stubCompileFunctionDeadLetterTopic.firstCall.args[1]).to.be('mytopic1');
+        expect(stubCompileFunctionDeadLetterTopic.secondCall.args[0]).to.be('f2');
+        expect(stubCompileFunctionDeadLetterTopic.secondCall.args[1]).to.be('mytopic2');
+
+        expect(stubCompileFunctionDeadLetterQueue.callCount).to.be(0);
 
       });
 
@@ -1131,5 +1251,51 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
     });
 
+  });
+
+  describe('compileFunctionDeadLetterTopic', () => {
+
+    it('throws an error of deadLetter.sns is not a string', () => {
+
+      // ARRANGE:
+      const stage = 'test1';
+      const region = 'us-west-42';
+
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const plugin = new Plugin(mockServerless, { stage, region });
+
+      // ACT:
+      const act = () => plugin.compileFunctionDeadLetterTopic('f1', { });
+
+      // ASSERT:
+      expect(act).throwException((e) => {
+        expect(e.message).to.contain('deadLetter.sns is an unexpected type.  This must be a or string.');
+      });
+
+    });
+
+    it('assigns SNS resource', () => {
+
+      // ARRANGE:
+      const stage = 'test1';
+      const region = 'us-west-42';
+
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const plugin = new Plugin(mockServerless, { stage, region });
+
+      // ACT:
+      plugin.compileFunctionDeadLetterTopic('f1', 'MySns');
+
+      // ASSERT:
+      const resources = mockServerless.service.provider.compiledCloudFormationTemplate.Resources;
+
+      expect(resources).to.have.key('F1DeadLetterTopic');
+      expect(resources.F1DeadLetterTopic).to.eql({
+        Type: 'AWS::SNS::Topic',
+        Properties: {
+          TopicName: 'MySns'
+        }
+      });
+    });
   });
 });
