@@ -52,13 +52,13 @@ class Plugin {
 
     if (deadLetter.sqs !== undefined) {
       return this.resolveTargetArnFromObject(functionName, {
-        GetResourceArn: `${Plugin.normalize(functionName)}DeadLetterQueue`
+        GetResourceArn: Plugin.GetLogicalIdForDlQueue(functionName)
       });
     }
 
     if (deadLetter.sns !== undefined) {
       return this.resolveTargetArnFromObject(functionName, {
-        GetResourceArn: `${Plugin.normalize(functionName)}DeadLetterTopic`
+        GetResourceArn: Plugin.GetLogicalIdForDlTopic(functionName)
       });
     }
 
@@ -239,10 +239,18 @@ class Plugin {
     return s[0].toUpperCase() + s.substr(1);
   }
 
-  static normalizeResourceName(name) {
-    return Plugin.normalize(name.replace(/[^0-9A-Za-z]/g, ''));
+  static GetLogicalIdForDlQueue(functionName) {
+    return `${Plugin.normalize(functionName)}DeadLetterQueue`;
   }
-
+  static GetLogicalIdForDlQueuePolicy(functionName) {
+    return `${Plugin.normalize(functionName)}DeadLetterQueuePolicy`;
+  }
+  static GetLogicalIdForDlTopic(functionName) {
+    return `${Plugin.normalize(functionName)}DeadLetterTopic`;
+  }
+  static GetLogicalIdForFunction(functionName) {
+    return `${Plugin.normalize(functionName)}LambdaFunction`;
+  }
 
   compileFunctionDeadLetterQueue(functionName, queueConfig) {
 
@@ -252,9 +260,9 @@ class Plugin {
 
     const queueName = queueConfig;
 
-    const normalizedFnName = Plugin.normalize(functionName);
-    const queueLogicalId = `${normalizedFnName}DeadLetterQueue`;
-    const queuePolicyLogicalId = `${normalizedFnName}DeadLetterQueuePolicy`;
+    const functionLogicalId = Plugin.GetLogicalIdForFunction(functionName);
+    const queueLogicalId = Plugin.GetLogicalIdForDlQueue(functionName);
+    const queuePolicyLogicalId = Plugin.GetLogicalIdForDlQueuePolicy(functionName);
     const resources = this.serverless.service.provider.compiledCloudFormationTemplate.Resources;
 
     const queueResource = {
@@ -283,7 +291,7 @@ class Plugin {
             Condition: {
               ArnEquals: {
                 'aws:SourceArn': {
-                  'Fn::GetAtt': [`${normalizedFnName}LambdaFunction`, 'Arn']
+                  'Fn::GetAtt': [functionLogicalId, 'Arn']
                 }
               }
             }
@@ -304,8 +312,7 @@ class Plugin {
 
     const topicName = topicConfig;
 
-    const normalizedFnName = Plugin.normalize(functionName);
-    const topicLogicalId = `${normalizedFnName}DeadLetterTopic`;
+    const topicLogicalId = Plugin.GetLogicalIdForDlTopic(functionName);
     const resources = this.serverless.service.provider.compiledCloudFormationTemplate.Resources;
 
     const topicResource = {
