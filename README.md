@@ -11,7 +11,7 @@
 
 ## What is it?
 
-A [serverless](https://serverless.com/) plugin that can assign the `DeadLetterConfig` to a Lambda function.
+A [serverless](https://serverless.com/) plugin that can assign a `DeadLetterConfig` to a Lambda function and optionally create a new SQS queue or SNS Topic with a simple syntax.
 
 Failed asynchronous messages for Amazon Lambda can be be sent to an SQS queue or SNS topic by setting the `DeadLetterConfig`.  Lambda Dead Letter Queues [are documented here](http://docs.aws.amazon.com/lambda/latest/dg/dlq.html).  
 
@@ -30,19 +30,23 @@ plugins:
 
 ## How do I use it?
 
-Dead letter settings are assigned via a new `deadLetter` property nested under a function in a `serverless.yml` file.  The property name `deadLetter` was used rather than `deadLetterConfig` so that future internal implementations of `deadLetterConfig`, that will most likely be directly supported by CloudFormation natively, will not conflict.
+Dead letter settings are assigned via a new `deadLetter` property nested under a function in a `serverless.yml` file.  
 
 There are several methods to configure the Lambda deadLetterConfig.
 
-* [Method-1](#method-1):  Create a new deadLetter SQS queue.
+* [Method-1](#method-1):  Create a new deadLetter SQS queue or SNS Topic
 * [Method-2](#method-2):  Use a pre-existing queue/topic.
 * [Method-3](#method-3):  Use a queue/topic created in the resources.
 * [Remove Dead Letter Resource](#remove-deadletter-resource):  Remove any deadletter queue/topic that was previously assigned.
 
 ### Method-1
+
+#### DeadLetter Queue
 Use the `deadLetter.sqs` to create a new dead letter queue for the function.  
 
-This will add a new SQS Queue and QueuePolicy to the serverless cloudformation stack.  After the CF stack is deployed a call is made to `UpdateFunctionConfiguration` to assign the `DeadLetterConfig.TargetArn` using the arn of the new queue.
+
+The resulting cloudformation stack will contain an SQS Queue and it's respective QueuePolicy.  
+
 
 ```YAML
 # 'functions' in serverless.yml
@@ -53,6 +57,23 @@ functions:
 
     deadLetter:
       sqs:  createUser-dl-queue
+```
+
+#### DeadLetter Topic
+
+Use the `deadLetter.sns` to create a new dead letter topic for the function.
+
+The resulting cloudformation stack will contain an SQS Topic resource.
+
+```YAML
+# 'functions' in serverless.yml
+
+functions:
+  createUser: # Function name
+    handler: handler.createUser # Reference to function 'createUser' in code
+
+    deadLetter:
+      sns:  createUser-dl-topic
 ```
 
 

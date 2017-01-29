@@ -36,19 +36,29 @@ class Plugin {
 
   resolveTargetArn(functionName, deadLetter) {
 
-    if (deadLetter.sqs === undefined &&
-        deadLetter.targetArn === undefined) {
-      throw new Error(`Function: ${functionName}.deadLetter is missing one of the following properties: [targetArn, sqs]`);
+    let targetDefCount = 0;
+
+    if (deadLetter.sqs !== undefined) targetDefCount += 1;
+    if (deadLetter.sns !== undefined) targetDefCount += 1;
+    if (deadLetter.targetArn !== undefined) targetDefCount += 1;
+
+    if (targetDefCount === 0) {
+      throw new Error(`Function: ${functionName}.deadLetter is missing one of the following properties: [sqs, sns, targetArn]`);
     }
 
-    if (deadLetter.sqs !== undefined &&
-        deadLetter.targetArn !== undefined) {
-      throw new Error(`Function: ${functionName}.deadLetter can only have one of the following properties: [targetArn, sqs]`);
+    if (targetDefCount > 1) {
+      throw new Error(`Function: ${functionName}.deadLetter can only have one of the following properties: [sqs, sns, targetArn]`);
     }
 
     if (deadLetter.sqs !== undefined) {
       return this.resolveTargetArnFromObject(functionName, {
         GetResourceArn: `${Plugin.normalize(functionName)}DeadLetterQueue`
+      });
+    }
+
+    if (deadLetter.sns !== undefined) {
+      return this.resolveTargetArnFromObject(functionName, {
+        GetResourceArn: `${Plugin.normalize(functionName)}DeadLetterTopic`
       });
     }
 
@@ -209,6 +219,11 @@ class Plugin {
           functionObj.deadLetter.sqs);
       }
 
+      if (functionObj.deadLetter.sns !== undefined) {
+        return this.compileFunctionDeadLetterTopic(functionName,
+          functionObj.deadLetter.sns);
+      }
+
       return BbPromise.resolve();
 
     });
@@ -279,6 +294,27 @@ class Plugin {
 
     resources[queueLogicalId] = queueResource;
     resources[queuePolicyLogicalId] = queuePolicyResource;
+  }
+
+  compileFunctionDeadLetterTopic(functionName, topicConfig) {
+
+    if (typeof topicConfig !== 'string') {
+      throw new Error(`Function property ${functionName}.deadLetter.sns is an unexpected type.  This must be a or string.`);
+    }
+
+    const topicName = topicConfig;
+
+    const normalizedFnName = Plugin.normalize(functionName);
+    const topicLogicalId = `${normalizedFnName}DeadLetterTopic`;
+    const resources = this.serverless.service.provider.compiledCloudFormationTemplate.Resources;
+
+    const topicResource = {
+      Type: 'AWS::SNS::Topic',
+      Properties: {
+        TopicName: topicName
+      }
+    };
+    resources[topicLogicalId] = topicResource;
   }
 
 }
