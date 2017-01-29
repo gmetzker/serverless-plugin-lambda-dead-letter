@@ -227,6 +227,10 @@ class Plugin {
   compileFunctionDeadLetterResource(functionName) {
     const functionObj = this.serverless.service.getFunction(functionName);
 
+    if (functionObj.deadLetter === null) {
+      return BbPromise.resolve();
+    }
+
     if (functionObj.deadLetter === undefined) {
       return BbPromise.resolve();
     }
@@ -267,11 +271,15 @@ class Plugin {
 
   compileFunctionDeadLetterQueue(functionName, queueConfig) {
 
-    if (typeof queueConfig !== 'string') {
+    if (typeof queueConfig !== 'string' && queueConfig !== null) {
       throw new Error(`Function property ${functionName}.deadLetter.sqs is an unexpected type.  This must be a or string.`);
     }
 
-    const queueName = queueConfig;
+    const queueName = (queueConfig || '').trim();
+
+    if (queueName.length < 1) {
+      throw new Error(`Function property ${functionName}.deadLetter.sqs must contain one or more characters.`);
+    }
 
     const functionLogicalId = Plugin.GetLogicalIdForFunction(functionName);
     const queueLogicalId = Plugin.GetLogicalIdForDlQueue(functionName);
@@ -319,11 +327,15 @@ class Plugin {
 
   compileFunctionDeadLetterTopic(functionName, topicConfig) {
 
-    if (typeof topicConfig !== 'string') {
+    if (typeof topicConfig !== 'string' && topicConfig !== null) {
       throw new Error(`Function property ${functionName}.deadLetter.sns is an unexpected type.  This must be a or string.`);
     }
 
-    const topicName = topicConfig;
+    const topicName = (topicConfig || '').trim();
+
+    if (topicName.length < 1) {
+      throw new Error(`Function property ${functionName}.deadLetter.sns must contain one or more characters.`);
+    }
 
     const topicLogicalId = Plugin.GetLogicalIdForDlTopic(functionName);
     const resources = this.serverless.service.provider.compiledCloudFormationTemplate.Resources;
