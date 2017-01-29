@@ -32,9 +32,10 @@ class Plugin {
       }
     };
 
+
   }
 
-  resolveTargetArn(functionName, deadLetter) {
+  resolveTargetArn(functionName, deadLetter, resolveStackResources) {
 
     let targetDefCount = 0;
 
@@ -53,13 +54,13 @@ class Plugin {
     if (deadLetter.sqs !== undefined) {
       return this.resolveTargetArnFromObject(functionName, {
         GetResourceArn: Plugin.GetLogicalIdForDlQueue(functionName)
-      });
+      }, resolveStackResources);
     }
 
     if (deadLetter.sns !== undefined) {
       return this.resolveTargetArnFromObject(functionName, {
         GetResourceArn: Plugin.GetLogicalIdForDlTopic(functionName)
-      });
+      }, resolveStackResources);
     }
 
     const targetArn = deadLetter.targetArn;
@@ -73,7 +74,7 @@ class Plugin {
 
     } else if (typeof targetArn === 'object') {
 
-      return this.resolveTargetArnFromObject(functionName, targetArn);
+      return this.resolveTargetArnFromObject(functionName, targetArn, resolveStackResources);
     }
 
     throw new Error(`Function property ${functionName}.deadLetter.targetArn is an unexpected type.  This must be an object or string.`);
@@ -99,17 +100,18 @@ class Plugin {
     return BbPromise.resolve(targetArn);
   }
 
-  resolveTargetArnFromObject(functionName, targetArn) {
+  resolveTargetArnFromObject(functionName, targetArn, resolveStackResources) {
 
     if (!targetArn.GetResourceArn) {
       throw new Error(`Function property ${functionName}.deadLetter.targetArn object is missing GetResourceArn property.`);
     }
 
-    if (!this.deploy) {
-      // If noDeploy options is set then there is no guarantee that the stack exists
-      // and no guarantee that the serverless.yml even matches the a previously deploy stack.
-      // So instead of returning the real arn we'll return a string that
-      // can be used for logging but not an actual ARN.
+    if (!resolveStackResources) {
+      // If the stack has not been deployed this we cannot get the resource arn
+      // from cloudformation yet so just return a display string (not a real arn).
+      // This can be used when:
+      //  a)  the --noDeploy option is set
+      //  b)  before stack deployment when we want to run this for simple validations.
       return BbPromise.resolve(`\${GetResourceArn: ${targetArn.GetResourceArn}}`);
     }
 
@@ -143,7 +145,7 @@ class Plugin {
       });
   }
 
-  buildDeadLetterUpdateParams(functionName) {
+  buildDeadLetterUpdateParams(functionName, resolveStackResources) {
 
     const functionObj = this.serverless.service.getFunction(functionName);
 
@@ -153,7 +155,8 @@ class Plugin {
 
     return BbPromise.bind(this)
 
-      .then(() => this.resolveTargetArn(functionName, functionObj.deadLetter))
+      .then(() => this.resolveTargetArn(functionName, functionObj.deadLetter,
+        resolveStackResources))
 
       .then(targetArnString => BbPromise.resolve({
         FunctionName: functionObj.name,
@@ -166,7 +169,7 @@ class Plugin {
   setLambdaDeadLetterConfig() {
 
     return BbPromise.mapSeries(this.serverless.service.getAllFunctions(), functionName =>
-      this.buildDeadLetterUpdateParams(functionName)
+      this.buildDeadLetterUpdateParams(functionName, this.deploy)
 
       .then((deadLetterUpdateParams) => {
 
@@ -174,7 +177,6 @@ class Plugin {
           return BbPromise.resolve();
         }
 
-        const arnStr = deadLetterUpdateParams.DeadLetterConfig.TargetArn || '{none}';
         let logPrefix;
         let updateStep;
 
@@ -189,8 +191,10 @@ class Plugin {
 
         return updateStep.then(() => {
 
+          const arnDisplayStr = deadLetterUpdateParams.DeadLetterConfig.TargetArn || '{none}';
+
           this.serverless.cli.log(`${logPrefix} Function '${functionName}' ` +
-              `DeadLetterConfig.TargetArn: ${arnStr}`);
+              `DeadLetterConfig.TargetArn: ${arnDisplayStr}`);
         });
 
       }));
@@ -206,28 +210,37 @@ class Plugin {
     return ['arn', 'aws', 'sqs', region, account, queueName].join(':');
   }
 
+  validate(functionName) {
+    return this.buildDeadLetterUpdateParams(functionName, false);
+  }
+
   compileFunctionDeadLetterResources() {
-    return BbPromise.mapSeries(this.serverless.service.getAllFunctions(), (functionName) => {
+    return BbPromise.mapSeries(this.serverless.service.getAllFunctions(), functionName =>
 
-      const functionObj = this.serverless.service.getFunction(functionName);
+      BbPromise.resolve()
+        .then(() => this.validate(functionName))
+        .then(() => this.compileFunctionDeadLetterResource(functionName))
 
-      if (functionObj.deadLetter === undefined) {
-        return BbPromise.resolve();
-      }
-      if (functionObj.deadLetter.sqs !== undefined) {
-        return this.compileFunctionDeadLetterQueue(functionName,
-          functionObj.deadLetter.sqs);
-      }
+    );
+  }
 
-      if (functionObj.deadLetter.sns !== undefined) {
-        return this.compileFunctionDeadLetterTopic(functionName,
-          functionObj.deadLetter.sns);
-      }
+  compileFunctionDeadLetterResource(functionName) {
+    const functionObj = this.serverless.service.getFunction(functionName);
 
+    if (functionObj.deadLetter === undefined) {
       return BbPromise.resolve();
+    }
+    if (functionObj.deadLetter.sqs !== undefined) {
+      return this.compileFunctionDeadLetterQueue(functionName,
+        functionObj.deadLetter.sqs);
+    }
 
-    });
+    if (functionObj.deadLetter.sns !== undefined) {
+      return this.compileFunctionDeadLetterTopic(functionName,
+        functionObj.deadLetter.sns);
+    }
 
+    return BbPromise.resolve();
 
   }
 
