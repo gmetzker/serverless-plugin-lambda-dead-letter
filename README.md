@@ -34,12 +34,29 @@ Dead letter settings are assigned via a new `deadLetter` property nested under a
 
 There are several methods to configure the Lambda deadLetterConfig.
 
-* [Method-1](#method-1):  Use a pre-existing queue/topic.
-* [Method-2](#method-2):  Use a queue/topic created in the resources.
+* [Method-1](#method-1):  Create a new deadLetter SQS queue.
+* [Method-2](#method-2):  Use a pre-existing queue/topic.
+* [Method-3](#method-3):  Use a queue/topic created in the resources.
 * [Remove Dead Letter Resource](#remove-deadletter-resource):  Remove any deadletter queue/topic that was previously assigned.
 
-
 ### Method-1
+Use the 'deadLetter.sqs' to create a new dead letter queue for the function.  
+
+This will add a new SQS Queue and QueuePolicy to the serverless cloudformation stack.  After the CF stack is deployed a call is made to `UpdateFunctionConfiguration` to assign the `DeadLetterConfig.TargetArn` using the arn of the new queue.
+
+```YAML
+# 'functions' in serverless.yml
+
+functions:
+  createUser: # Function name
+    handler: handler.createUser # Reference to function 'createUser' in code
+
+    deadLetter:
+      sqs:  createUser-dl-queue
+```
+
+
+### Method-2
 Use the `targetArn` property to specify the exact SQS queue or SNS topic to use for Lambda dead letter messages.  In this case the queue\topic must already exist as must the queue\topic policy.
 
 Reference the ARN of an existing queue `createUser-dl-queue`
@@ -54,7 +71,7 @@ functions:
       targetArn: arn:aws:sqs:us-west-2:123456789012:createUser-dl-queue
 ```
 
-### Method-2
+### Method-3
 If you created a queue\topic in the `resource` section you can reference it using the `GetResourceArn` pseudo method.  
 
 This will use the arn of the resource referenced by `{logicalId}`
