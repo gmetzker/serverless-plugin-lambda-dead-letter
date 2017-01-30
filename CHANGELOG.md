@@ -4,7 +4,7 @@
 ## Features
 * Simplified syntax to create new SQS queue and use it in the function's `DeadLetterConfig.TargetArn` #10
 * Simplified syntax to create a new SNS topic and use it in the function's `DeadLetterConfig.TargetArn` #11
-* Validate yml before deploy #26
+* Validate function `deadLetter` object before deploy #26
 
  ## Bug Fixes
  * Do not call `UpdateFunctionConfiguration` when `--noDeploy` option is specified #19
