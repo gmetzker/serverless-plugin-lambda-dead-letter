@@ -8,11 +8,11 @@
 
  ## Bug Fixes
  * Do not call `UpdateFunctionConfiguration` when `--noDeploy` option is specified #19
- 
+
  ## Meta
  * [Git Hub Mile Stone](https://github.com/gmetzker/serverless-plugin-lambda-dead-letter/milestone/3?closed=1)
- * [Comparison since last release](https://github.com/gmetzker/serverless-plugin-lambda-dead-letter/compare/v1.0.2...v1.1.0)
- 
+ * [Comparison since last release](https://github.com/gmetzker/serverless-plugin-lambda-dead-letter/compare/v1.0.0...v1.1.0)
+
 # 1.0.0 (2017-01-15)
 
 ## Features
