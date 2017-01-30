@@ -1,12 +1,13 @@
 
-# 1.1.0 (TBD)
+# 1.1.0 (2017-01-29)
 
 ## Features
-* Simplified syntax to create new SQS queue and use it in the function's `DeadLetterConfig.TargetArn`
-* Simplified syntax to create a new SNS topic and use it in the function's `DeadLetterConfig.TargetArn`
+* Simplified syntax to create new SQS queue and use it in the function's `DeadLetterConfig.TargetArn` #10
+* Simplified syntax to create a new SNS topic and use it in the function's `DeadLetterConfig.TargetArn` #11
+* Validate yml before deploy #26
 
  ## Bug Fixes
- * Do not call `UpdateFunctionConfiguration` when `--noDeploy` option is specified
+ * Do not call `UpdateFunctionConfiguration` when `--noDeploy` option is specified #19
  
  ## Meta
  * [Git Hub Mile Stone](https://github.com/gmetzker/serverless-plugin-lambda-dead-letter/milestone/3?closed=1)
