@@ -13,7 +13,9 @@ describe('serverless-plugin-lambda-dead-letter', () => {
     const provider = {
       request: requestFunc,
       naming: {
-        getStackName: () => 'MyCoolStack'
+        getStackName: () => 'MyCoolStack',
+        getNormalizedFunctionName: getNormalizedFunctionName,
+        getLambdaLogicalId: (functionName) => `${getNormalizedFunctionName(functionName)}LambdaFunction`
       }
     };
 
@@ -38,14 +40,24 @@ describe('serverless-plugin-lambda-dead-letter', () => {
       },
       cli: { log: () => {
       } }
-      // cli: {
-      //   log: (val) => {
-      //     process.stdout.write(`${val} \n`);
-      //   } }
     };
 
     return serverless;
 
+  }
+
+  function getNormalizedFunctionName(functionName) {
+
+    // Copied from https://github.com/serverless/serverless/blob/master/lib/plugins/aws/lib/naming.js
+    // See:  serverless/lib/plugins/aws/lib/naming.js/getNormalizedFunctionName
+    let result = functionName
+      .replace(/-/g, 'Dash')
+      .replace(/_/g, 'Underscore');
+
+    if (result !== '') {
+      result = result[0].toUpperCase() + result.substr(1);
+    }
+    return result;
   }
 
   function createMockRequest(requestStub) {

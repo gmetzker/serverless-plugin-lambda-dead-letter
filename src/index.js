@@ -53,13 +53,13 @@ class Plugin {
 
     if (deadLetter.sqs !== undefined) {
       return this.resolveTargetArnFromObject(functionName, {
-        GetResourceArn: Plugin.GetLogicalIdForDlQueue(functionName)
+        GetResourceArn: this.getLogicalIdForDlQueue(functionName)
       }, resolveStackResources);
     }
 
     if (deadLetter.sns !== undefined) {
       return this.resolveTargetArnFromObject(functionName, {
-        GetResourceArn: Plugin.GetLogicalIdForDlTopic(functionName)
+        GetResourceArn: this.getLogicalIdForDlTopic(functionName)
       }, resolveStackResources);
     }
 
@@ -248,25 +248,18 @@ class Plugin {
 
   }
 
-  static normalize(s) {
-    if (s === undefined || s === '') {
-      return '';
-    }
-
-    return s[0].toUpperCase() + s.substr(1);
+  normalizeFunctionName(functionName) {
+    return this.provider.naming.getNormalizedFunctionName(functionName);
   }
 
-  static GetLogicalIdForDlQueue(functionName) {
-    return `${Plugin.normalize(functionName)}DeadLetterQueue`;
+  getLogicalIdForDlQueue(functionName) {
+    return `${this.normalizeFunctionName(functionName)}DeadLetterQueue`;
   }
-  static GetLogicalIdForDlQueuePolicy(functionName) {
-    return `${Plugin.normalize(functionName)}DeadLetterQueuePolicy`;
+  getLogicalIdForDlQueuePolicy(functionName) {
+    return `${this.normalizeFunctionName(functionName)}DeadLetterQueuePolicy`;
   }
-  static GetLogicalIdForDlTopic(functionName) {
-    return `${Plugin.normalize(functionName)}DeadLetterTopic`;
-  }
-  static GetLogicalIdForFunction(functionName) {
-    return `${Plugin.normalize(functionName)}LambdaFunction`;
+  getLogicalIdForDlTopic(functionName) {
+    return `${this.normalizeFunctionName(functionName)}DeadLetterTopic`;
   }
 
   compileFunctionDeadLetterQueue(functionName, queueConfig) {
@@ -281,9 +274,9 @@ class Plugin {
       throw new Error(`Function property ${functionName}.deadLetter.sqs must contain one or more characters.`);
     }
 
-    const functionLogicalId = Plugin.GetLogicalIdForFunction(functionName);
-    const queueLogicalId = Plugin.GetLogicalIdForDlQueue(functionName);
-    const queuePolicyLogicalId = Plugin.GetLogicalIdForDlQueuePolicy(functionName);
+    const functionLogicalId = this.provider.naming.getLambdaLogicalId(functionName);
+    const queueLogicalId = this.getLogicalIdForDlQueue(functionName);
+    const queuePolicyLogicalId = this.getLogicalIdForDlQueuePolicy(functionName);
     const resources = this.serverless.service.provider.compiledCloudFormationTemplate.Resources;
 
     const queueResource = {
@@ -337,7 +330,7 @@ class Plugin {
       throw new Error(`Function property ${functionName}.deadLetter.sns must contain one or more characters.`);
     }
 
-    const topicLogicalId = Plugin.GetLogicalIdForDlTopic(functionName);
+    const topicLogicalId = this.getLogicalIdForDlTopic(functionName);
     const resources = this.serverless.service.provider.compiledCloudFormationTemplate.Resources;
 
     const topicResource = {
