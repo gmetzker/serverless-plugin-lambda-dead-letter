@@ -49,7 +49,7 @@ Use the `deadLetter.sqs` to create a new dead letter queue for the function.
 
 The resulting cloudformation stack will contain an SQS Queue and it's respective QueuePolicy.  
 
-
+#### Create new dead-letter queue by name
 ```YAML
 # 'functions' in serverless.yml
 
@@ -58,7 +58,25 @@ functions:
     handler: handler.createUser # Reference to function 'createUser' in code
 
     deadLetter:
-      sqs:  createUser-dl-queue
+      sqs:  createUser-dl-queue  # New Queue with this name
+```
+
+#### Create new dead-letter queue with properties
+```YAML
+# 'functions' in serverless.yml
+
+functions:
+  createUser: # Function name
+    handler: handler.createUser # Reference to function 'createUser' in code
+
+    deadLetter:
+      sqs:      # New Queue with these properties
+        queueName: createUser-dl-queue
+        delaySeconds: 60
+        maximumMessageSize: 2048
+        messageRetentionPeriod: 200000
+        receiveMessageWaitTimeSeconds: 15
+        visibilityTimeout: 300
 ```
 
 #### DeadLetter Topic

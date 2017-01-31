@@ -262,16 +262,35 @@ class Plugin {
     return `${this.normalizeFunctionName(functionName)}DeadLetterTopic`;
   }
 
+  static capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+  }
+
   compileFunctionDeadLetterQueue(functionName, queueConfig) {
 
-    if (typeof queueConfig !== 'string' && queueConfig !== null) {
-      throw new Error(`Function property ${functionName}.deadLetter.sqs is an unexpected type.  This must be a or string.`);
+    const queueProps = { QueueName: '' };
+
+    if (typeof queueConfig === 'string' || queueConfig === null) {
+
+      queueProps.QueueName = (queueConfig || '').trim();
+
+    } else if (typeof queueConfig === 'object') {
+
+      Object.keys(queueConfig).forEach((key) => {
+        if (Object.prototype.hasOwnProperty.call(queueConfig, key)) {
+          queueProps[Plugin.capitalizeFirstLetter(key)] = queueConfig[key];
+        }
+      });
+
+    } else {
+
+      throw new Error(`Function property ${functionName}.deadLetter.sqs is an unexpected type.  This must be an object or a string.`);
+
     }
 
-    const queueName = (queueConfig || '').trim();
 
-    if (queueName.length < 1) {
-      throw new Error(`Function property ${functionName}.deadLetter.sqs must contain one or more characters.`);
+    if (queueProps.QueueName.length < 1) {
+      throw new Error(`Function property ${functionName}.deadLetter.sqs queueName must contain one or more characters.`);
     }
 
     const functionLogicalId = this.provider.naming.getLambdaLogicalId(functionName);
@@ -281,9 +300,7 @@ class Plugin {
 
     const queueResource = {
       Type: 'AWS::SQS::Queue',
-      Properties: {
-        QueueName: queueName
-      }
+      Properties: queueProps
     };
 
     const queuePolicyResource = {
