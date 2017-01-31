@@ -7,6 +7,19 @@ const BbPromise = require('bluebird');
 
 describe('serverless-plugin-lambda-dead-letter', () => {
 
+  function getNormalizedFunctionName(functionName) {
+
+    // Copied from https://github.com/serverless/serverless/blob/master/lib/plugins/aws/lib/naming.js
+    // See:  serverless/lib/plugins/aws/lib/naming.js/getNormalizedFunctionName
+    let result = functionName
+      .replace(/-/g, 'Dash')
+      .replace(/_/g, 'Underscore');
+
+    if (result !== '') {
+      result = result[0].toUpperCase() + result.substr(1);
+    }
+    return result;
+  }
 
   function createMockServerless(requestFunc) {
 
@@ -14,8 +27,8 @@ describe('serverless-plugin-lambda-dead-letter', () => {
       request: requestFunc,
       naming: {
         getStackName: () => 'MyCoolStack',
-        getNormalizedFunctionName: getNormalizedFunctionName,
-        getLambdaLogicalId: (functionName) => `${getNormalizedFunctionName(functionName)}LambdaFunction`
+        getNormalizedFunctionName,
+        getLambdaLogicalId: functionName => `${getNormalizedFunctionName(functionName)}LambdaFunction`
       }
     };
 
@@ -44,20 +57,6 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
     return serverless;
 
-  }
-
-  function getNormalizedFunctionName(functionName) {
-
-    // Copied from https://github.com/serverless/serverless/blob/master/lib/plugins/aws/lib/naming.js
-    // See:  serverless/lib/plugins/aws/lib/naming.js/getNormalizedFunctionName
-    let result = functionName
-      .replace(/-/g, 'Dash')
-      .replace(/_/g, 'Underscore');
-
-    if (result !== '') {
-      result = result[0].toUpperCase() + result.substr(1);
-    }
-    return result;
   }
 
   function createMockRequest(requestStub) {
@@ -1291,7 +1290,7 @@ describe('serverless-plugin-lambda-dead-letter', () => {
   });
 
   describe('compileFunctionDeadLetterQueue', () => {
-    it('throws an error of deadLetter.sqs is not a string', () => {
+    it('throws an error of deadLetter.sqs is not a string or object', () => {
 
       // ARRANGE:
       const stage = 'test1';
@@ -1301,11 +1300,11 @@ describe('serverless-plugin-lambda-dead-letter', () => {
       const plugin = new Plugin(mockServerless, { stage, region });
 
       // ACT:
-      const act = () => plugin.compileFunctionDeadLetterQueue('f1', { });
+      const act = () => plugin.compileFunctionDeadLetterQueue('f1', 123);
 
       // ASSERT:
       expect(act).throwException((e) => {
-        expect(e.message).to.contain('deadLetter.sqs is an unexpected type.  This must be a or string.');
+        expect(e.message).to.contain('deadLetter.sqs is an unexpected type.  This must be an object or a string.');
       });
 
     });
@@ -1328,13 +1327,13 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
         // ASSERT:
         expect(act).throwException((e) => {
-          expect(e.message).to.contain('deadLetter.sqs must contain one or more characters');
+          expect(e.message).to.contain('deadLetter.sqs queueName must contain one or more characters');
         });
 
       });
 
     });
-    it('assigns SQS resource', () => {
+    it('can compile SQS resource when sqs is a string', () => {
 
       // ARRANGE:
       const stage = 'test1';
@@ -1354,6 +1353,42 @@ describe('serverless-plugin-lambda-dead-letter', () => {
         Type: 'AWS::SQS::Queue',
         Properties: {
           QueueName: 'MySqs'
+        }
+      });
+    });
+
+    it('can compile SQS resource when sqs is an object', () => {
+
+      // ARRANGE:
+      const stage = 'test1';
+      const region = 'us-west-42';
+
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const plugin = new Plugin(mockServerless, { stage, region });
+
+      // ACT:
+      plugin.compileFunctionDeadLetterQueue('f1', {
+        queueName: 'MySqs',
+        delaySeconds: 60,
+        maximumMessageSize: 2048,
+        messageRetentionPeriod: 200000,
+        receiveMessageWaitTimeSeconds: 15,
+        visibilityTimeout: 300
+      });
+
+      // ASSERT:
+      const resources = mockServerless.service.provider.compiledCloudFormationTemplate.Resources;
+
+      expect(resources).to.have.key('F1DeadLetterQueue');
+      expect(resources.F1DeadLetterQueue).to.eql({
+        Type: 'AWS::SQS::Queue',
+        Properties: {
+          QueueName: 'MySqs',
+          DelaySeconds: 60,
+          MaximumMessageSize: 2048,
+          MessageRetentionPeriod: 200000,
+          ReceiveMessageWaitTimeSeconds: 15,
+          VisibilityTimeout: 300
         }
       });
     });
