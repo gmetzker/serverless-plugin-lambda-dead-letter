@@ -1,3 +1,12 @@
+# 1.2.0 (2017-01-30)
+
+## Features
+* Dead Letter Queue properties #12
+
+## Meta
+* [Git Hub Mile Stone](https://github.com/gmetzker/serverless-plugin-lambda-dead-letter/milestone/2?closed=1)
+* [Comparison since last release](https://github.com/gmetzker/serverless-plugin-lambda-dead-letter/compare/v1.1.0...v1.2.0)
+
 
 # 1.1.0 (2017-01-29)
 
