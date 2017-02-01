@@ -1,3 +1,12 @@
+# 1.2.1 (2017-01-31)
+
+## Bug Fixes
+* Removed the plugin command `setLambdaDeadLetterConfig` because it didn't work in all scenarios.
+
+## Meta
+* [Comparison since last release](https://github.com/gmetzker/serverless-plugin-lambda-dead-letter/compare/v1.2.0...v1.2.1)
+
+
 # 1.2.0 (2017-01-30)
 
 ## Features

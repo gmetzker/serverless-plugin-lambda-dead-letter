@@ -17,22 +17,9 @@ class Plugin {
         .then(this.setLambdaDeadLetterConfig),
 
       'deploy:compileEvents': () => BbPromise.bind(this)
-        .then(this.compileFunctionDeadLetterResources),
-
-
-      'setLambdaDeadLetterConfig:setLambdaDeadLetterConfig': () => BbPromise.bind(this)
-        .then(this.setLambdaDeadLetterConfig)
+        .then(this.compileFunctionDeadLetterResources)
 
     };
-
-    this.commands = {
-      setLambdaDeadLetterConfig: {
-        usage: 'Adds subscriptions to any SNS Topics defined by externalSNS.',
-        lifecycleEvents: ['setLambdaDeadLetterConfig']
-      }
-    };
-
-
   }
 
   resolveTargetArn(functionName, deadLetter, resolveStackResources) {

@@ -21,6 +21,15 @@ At the time this plugin was developed AWS Cloudformation (and serverless) did no
 
 ## Installation
 
+### Requirements
+* nodeJs > `v4.0`
+* serverless > `v1.4`
+
+Install the plugin.
+```bash
+npm install serverless-plugin-lambda-dead-letter
+```
+
 Install the plugin with npm and reference it in the serverless yaml file [as documented here.](https://serverless.com/framework/docs/providers/aws/guide/plugins/)
 
 ```YAML
