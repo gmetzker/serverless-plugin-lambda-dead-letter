@@ -1,6 +1,7 @@
 'use strict';
 
 const BbPromise = require('bluebird');
+const { compileCloudwatchAlarm } = require('./alerting');
 
 class Plugin {
 

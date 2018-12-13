@@ -2,6 +2,7 @@
 
 const expect = require('expect.js');
 const Plugin = require('../src/index.js');
+const compileCloudwatchAlarm = require('../src/alerting');
 const sinon = require('sinon');
 const BbPromise = require('bluebird');
 
@@ -1301,6 +1302,155 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
       // ACT:
       const act = () => plugin.compileFunctionDeadLetterQueue('f1', 123);
+
+      // ASSERT:
+      expect(act).throwException((e) => {
+        expect(e.message).to.contain('deadLetter.sqs is an unexpected type.  This must be an object or a string.');
+      });
+
+    });
+
+    const sqsStringValues = [null, '', '  '];
+
+    sqsStringValues.forEach((sqsValue) => {
+
+      it(`throws an error when deadLetter.sqs is '${sqsValue}' i.e. empty`, () => {
+
+        // ARRANGE:
+        const stage = 'test1';
+        const region = 'us-west-42';
+
+        const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+        const plugin = new Plugin(mockServerless, { stage, region });
+
+        // ACT:
+        const act = () => plugin.compileFunctionDeadLetterQueue('f1', sqsValue);
+
+        // ASSERT:
+        expect(act).throwException((e) => {
+          expect(e.message).to.contain('deadLetter.sqs queueName must contain one or more characters');
+        });
+
+      });
+
+    });
+    it('can compile SQS resource when sqs is a string', () => {
+
+      // ARRANGE:
+      const stage = 'test1';
+      const region = 'us-west-42';
+
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const plugin = new Plugin(mockServerless, { stage, region });
+
+      // ACT:
+      plugin.compileFunctionDeadLetterQueue('f1', 'MySqs');
+
+      // ASSERT:
+      const resources = mockServerless.service.provider.compiledCloudFormationTemplate.Resources;
+
+      expect(resources).to.have.key('F1DeadLetterQueue');
+      expect(resources.F1DeadLetterQueue).to.eql({
+        Type: 'AWS::SQS::Queue',
+        Properties: {
+          QueueName: 'MySqs'
+        }
+      });
+    });
+
+    it('can compile SQS resource when sqs is an object', () => {
+
+      // ARRANGE:
+      const stage = 'test1';
+      const region = 'us-west-42';
+
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const plugin = new Plugin(mockServerless, { stage, region });
+
+      // ACT:
+      plugin.compileFunctionDeadLetterQueue('f1', {
+        queueName: 'MySqs',
+        delaySeconds: 60,
+        maximumMessageSize: 2048,
+        messageRetentionPeriod: 200000,
+        receiveMessageWaitTimeSeconds: 15,
+        visibilityTimeout: 300
+      });
+
+      // ASSERT:
+      const resources = mockServerless.service.provider.compiledCloudFormationTemplate.Resources;
+
+      expect(resources).to.have.key('F1DeadLetterQueue');
+      expect(resources.F1DeadLetterQueue).to.eql({
+        Type: 'AWS::SQS::Queue',
+        Properties: {
+          QueueName: 'MySqs',
+          DelaySeconds: 60,
+          MaximumMessageSize: 2048,
+          MessageRetentionPeriod: 200000,
+          ReceiveMessageWaitTimeSeconds: 15,
+          VisibilityTimeout: 300
+        }
+      });
+    });
+
+    it('assigns SQS Policy resource', () => {
+
+      // ARRANGE:
+      const stage = 'test1';
+      const region = 'us-west-42';
+
+      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+      const plugin = new Plugin(mockServerless, { stage, region });
+
+      // ACT:
+      plugin.compileFunctionDeadLetterQueue('f1', 'MySqs');
+
+      // ASSERT:
+      const resources = mockServerless.service.provider.compiledCloudFormationTemplate.Resources;
+
+      expect(resources).to.have.key('F1DeadLetterQueuePolicy');
+      expect(resources.F1DeadLetterQueuePolicy).to.eql({
+        Type: 'AWS::SQS::QueuePolicy',
+        Properties: {
+          Queues: [{
+            Ref: 'F1DeadLetterQueue'
+          }],
+          PolicyDocument: {
+            Id: { 'Fn::Join': ['', [{ 'Fn::GetAtt': ['F1DeadLetterQueue', 'Arn'] }, '/SQSDefaultPolicy']] },
+            Version: '2012-10-17',
+            Statement: [{
+              Sid: 'Allow-Lambda-SendMessage',
+              Effect: 'Allow',
+              Principal: { AWS: '*' },
+              Action: ['SQS:SendMessage'],
+
+              Resource: { 'Fn::GetAtt': ['F1DeadLetterQueue', 'Arn'] },
+              Condition: {
+                ArnEquals: {
+                  'aws:SourceArn': {
+                    'Fn::GetAtt': ['F1LambdaFunction', 'Arn']
+                  }
+                }
+              }
+            }]
+          }
+        }
+      });
+
+    });
+
+  });
+
+  describe('compileCloudwatchAlarm', () => {
+    it('throws an error of deadLetter.alert is not a string or object', () => {
+
+      // ARRANGE:
+      const deadLetter = { sqs: null,
+        alert: null };
+      // ACT:
+  
+      const act = compileCloudwatchAlarm(deadLetter);
 
       // ASSERT:
       expect(act).throwException((e) => {
