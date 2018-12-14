@@ -2,7 +2,6 @@
 
 const expect = require('expect.js');
 const Plugin = require('../src/index.js');
-const compileCloudwatchAlarm = require('../src/alerting');
 const sinon = require('sinon');
 const BbPromise = require('bluebird');
 
@@ -1037,6 +1036,7 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
       const stubValidate = sinon.stub(plugin, 'validate', () => BbPromise.resolve());
       const stubCompile = sinon.stub(plugin, 'compileFunctionDeadLetterResource', () => BbPromise.resolve());
+      const stubCompileAlert = sinon.stub(plugin, 'compileCloudwatchAlarm', () => BbPromise.resolve());
 
 
       // ACT:
@@ -1050,9 +1050,11 @@ describe('serverless-plugin-lambda-dead-letter', () => {
         expect(stubGetAllFunctions.callCount).to.be(1);
         expect(stubValidate.firstCall.calledWithExactly('f1')).to.be(true);
         expect(stubCompile.firstCall.calledWithExactly('f1')).to.be(true);
+        expect(stubCompileAlert.firstCall.calledWithExactly('f1')).to.be(true);
 
         expect(stubValidate.secondCall.calledWithExactly('f2')).to.be(true);
         expect(stubCompile.secondCall.calledWithExactly('f2')).to.be(true);
+        expect(stubCompileAlert.secondCall.calledWithExactly('f2')).to.be(true);
 
       });
 
@@ -1443,54 +1445,67 @@ describe('serverless-plugin-lambda-dead-letter', () => {
   });
 
   describe('compileCloudwatchAlarm', () => {
-    it('throws an error of deadLetter.alert is not a string or object', () => {
+    const stage = 'test1';
+    const region = 'us-west-42';
+
+    const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
+    const plugin = new Plugin(mockServerless, { stage, region });
+
+    afterEach(() => {
+      try {
+        mockServerless.service.getFunction.restore();
+      } catch (e) {}
+
+    });
+
+    it('throws an error if deadLetter.alert is not a string or object', () => {
 
       // ARRANGE:
-      const deadLetter = { sqs: null,
-        alert: null };
+      const stubGetFunction = sinon.stub(mockServerless.service, 'getFunction');
+      stubGetFunction.returns({
+        name: 'function-A',
+        deadLetter: {
+          alert: null
+        }
+      });
+
       // ACT:
-  
-      const act = compileCloudwatchAlarm(deadLetter);
+      const act = () => plugin.compileCloudwatchAlarm('abc');
 
       // ASSERT:
       expect(act).throwException((e) => {
-        expect(e.message).to.contain('deadLetter.sqs is an unexpected type.  This must be an object or a string.');
+        expect(e.message).to.contain('deadLetter.alert must be an object or a string.');
       });
+
+      // mockServerless.service.getFunction.restore();
 
     });
 
-    const sqsStringValues = [null, '', '  '];
-
-    sqsStringValues.forEach((sqsValue) => {
-
-      it(`throws an error when deadLetter.sqs is '${sqsValue}' i.e. empty`, () => {
-
-        // ARRANGE:
-        const stage = 'test1';
-        const region = 'us-west-42';
-
-        const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
-        const plugin = new Plugin(mockServerless, { stage, region });
-
-        // ACT:
-        const act = () => plugin.compileFunctionDeadLetterQueue('f1', sqsValue);
-
-        // ASSERT:
-        expect(act).throwException((e) => {
-          expect(e.message).to.contain('deadLetter.sqs queueName must contain one or more characters');
-        });
-
-      });
-
-    });
-    it('can compile SQS resource when sqs is a string', () => {
+    it('throws an error if deadLetter.[sns, sqs and targetArn] is undefined', () => {
 
       // ARRANGE:
-      const stage = 'test1';
-      const region = 'us-west-42';
+      const funcName = 'FunA';
 
-      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
-      const plugin = new Plugin(mockServerless, { stage, region });
+      const stubGetFunction = sinon.stub(mockServerless.service, 'getFunction');
+      stubGetFunction.withArgs(funcName).returns({
+        name: 'function-A',
+        deadLetter: {
+          alert: 'TestAlarm'
+        }
+      });
+
+      // ACT:
+      const act = () => plugin.compileCloudwatchAlarm(funcName);
+
+      // ASSERT:
+      expect(act).throwException((e) => {
+        expect(e.message).to.contain('.deadLetter.[sns, sqs or targetArn] must be defined.');
+      });
+
+    });
+
+
+    it('can compile Cloudwatch::Alarm resource when sqs is a string', () => {
 
       // ACT:
       plugin.compileFunctionDeadLetterQueue('f1', 'MySqs');
@@ -1507,7 +1522,7 @@ describe('serverless-plugin-lambda-dead-letter', () => {
       });
     });
 
-    it('can compile SQS resource when sqs is an object', () => {
+    it('can compile Cloudwatch::Alarm resource when alert is an object', () => {
 
       // ARRANGE:
       const stage = 'test1';

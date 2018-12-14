@@ -1,7 +1,7 @@
 'use strict';
 
 const BbPromise = require('bluebird');
-const { compileCloudwatchAlarm } = require('./alerting');
+const { compileCloudwatchSQSAlarm } = require('./alerting');
 
 class Plugin {
 
@@ -208,8 +208,35 @@ class Plugin {
       BbPromise.resolve()
         .then(() => this.validate(functionName))
         .then(() => this.compileFunctionDeadLetterResource(functionName))
+        .then(() => this.compileCloudwatchAlarm(functionName))
 
     );
+  }
+
+  compileCloudwatchAlarm(functionName) {
+    const functionObj = this.serverless.service.getFunction(functionName);
+
+    if (functionObj.deadLetter.alert === undefined) {
+      return BbPromise.resolve();
+    } else if (!functionObj.deadLetter.alert || functionObj.deadLetter.alert === '') {
+      throw new Error(`Function property ${functionName}.deadLetter.alert must be an object or a string.`);
+    } else if (functionObj.deadLetter.sns === undefined &&
+                functionObj.deadLetter.sns === undefined &&
+                functionObj.deadLetter.targetArn === undefined) {
+      throw new Error(`Any property ${functionName}.deadLetter.[sns, sqs or targetArn] must be defined.`);
+    }
+
+    this.serverless.cli.log(`Adding alerting to ${functionObj.name}`);
+
+
+    const alarmLogicalId = this.getLogicalIdForCloudwatchAlarm(functionName);
+    const resources = this.serverless.service.provider.compiledCloudFormationTemplate.Resources;
+
+    const alarmResource = compileCloudwatchSQSAlarm(this.serverless, functionObj.deadLetter.alert);
+
+    resources[alarmLogicalId] = alarmResource;
+
+    return BbPromise.resolve();
   }
 
   compileFunctionDeadLetterResource(functionName) {
@@ -248,6 +275,9 @@ class Plugin {
   }
   getLogicalIdForDlTopic(functionName) {
     return `${this.normalizeFunctionName(functionName)}DeadLetterTopic`;
+  }
+  getLogicalIdForCloudwatchAlarm(functionName) {
+    return `${this.normalizeFunctionName(functionName)}CloudwatchAlarm`;
   }
 
   static capitalizeFirstLetter(string) {
