@@ -2,6 +2,7 @@
 
 const expect = require('expect.js');
 const Plugin = require('../src/index.js');
+const { compileCloudwatchAlarmTemplates } = require('../src/alerting.js');
 const sinon = require('sinon');
 const BbPromise = require('bluebird');
 
@@ -1458,14 +1459,14 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
     });
 
-    it('throws an error if deadLetter.alert is not a string or object', () => {
+    it('throws an error if deadLetter.alarm is not a string or object', () => {
 
       // ARRANGE:
       const stubGetFunction = sinon.stub(mockServerless.service, 'getFunction');
       stubGetFunction.returns({
         name: 'function-A',
         deadLetter: {
-          alert: null
+          alarm: null
         }
       });
 
@@ -1474,7 +1475,7 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
       // ASSERT:
       expect(act).throwException((e) => {
-        expect(e.message).to.contain('deadLetter.alert must be an object or a string.');
+        expect(e.message).to.contain('deadLetter.alarm must be an object.');
       });
 
       // mockServerless.service.getFunction.restore();
@@ -1490,7 +1491,9 @@ describe('serverless-plugin-lambda-dead-letter', () => {
       stubGetFunction.withArgs(funcName).returns({
         name: 'function-A',
         deadLetter: {
-          alert: 'TestAlarm'
+          alarm: {
+            enabled: true
+          }
         }
       });
 
@@ -1504,104 +1507,260 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
     });
 
-
-    it('can compile Cloudwatch::Alarm resource when sqs is a string', () => {
-
-      // ACT:
-      plugin.compileFunctionDeadLetterQueue('f1', 'MySqs');
-
-      // ASSERT:
-      const resources = mockServerless.service.provider.compiledCloudFormationTemplate.Resources;
-
-      expect(resources).to.have.key('F1DeadLetterQueue');
-      expect(resources.F1DeadLetterQueue).to.eql({
-        Type: 'AWS::SQS::Queue',
-        Properties: {
-          QueueName: 'MySqs'
-        }
-      });
-    });
-
-    it('can compile Cloudwatch::Alarm resource when alert is an object', () => {
+    it('can compile Cloudwatch::Alarm resource', () => {
 
       // ARRANGE:
-      const stage = 'test1';
-      const region = 'us-west-42';
+      const funcName = 'FunA';
 
-      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
-      const plugin = new Plugin(mockServerless, { stage, region });
-
-      // ACT:
-      plugin.compileFunctionDeadLetterQueue('f1', {
-        queueName: 'MySqs',
-        delaySeconds: 60,
-        maximumMessageSize: 2048,
-        messageRetentionPeriod: 200000,
-        receiveMessageWaitTimeSeconds: 15,
-        visibilityTimeout: 300
-      });
-
-      // ASSERT:
-      const resources = mockServerless.service.provider.compiledCloudFormationTemplate.Resources;
-
-      expect(resources).to.have.key('F1DeadLetterQueue');
-      expect(resources.F1DeadLetterQueue).to.eql({
-        Type: 'AWS::SQS::Queue',
-        Properties: {
-          QueueName: 'MySqs',
-          DelaySeconds: 60,
-          MaximumMessageSize: 2048,
-          MessageRetentionPeriod: 200000,
-          ReceiveMessageWaitTimeSeconds: 15,
-          VisibilityTimeout: 300
-        }
-      });
-    });
-
-    it('assigns SQS Policy resource', () => {
-
-      // ARRANGE:
-      const stage = 'test1';
-      const region = 'us-west-42';
-
-      const mockServerless = createMockServerless(createMockRequest(sinon.stub()));
-      const plugin = new Plugin(mockServerless, { stage, region });
-
-      // ACT:
-      plugin.compileFunctionDeadLetterQueue('f1', 'MySqs');
-
-      // ASSERT:
-      const resources = mockServerless.service.provider.compiledCloudFormationTemplate.Resources;
-
-      expect(resources).to.have.key('F1DeadLetterQueuePolicy');
-      expect(resources.F1DeadLetterQueuePolicy).to.eql({
-        Type: 'AWS::SQS::QueuePolicy',
-        Properties: {
-          Queues: [{
-            Ref: 'F1DeadLetterQueue'
-          }],
-          PolicyDocument: {
-            Id: { 'Fn::Join': ['', [{ 'Fn::GetAtt': ['F1DeadLetterQueue', 'Arn'] }, '/SQSDefaultPolicy']] },
-            Version: '2012-10-17',
-            Statement: [{
-              Sid: 'Allow-Lambda-SendMessage',
-              Effect: 'Allow',
-              Principal: { AWS: '*' },
-              Action: ['SQS:SendMessage'],
-
-              Resource: { 'Fn::GetAtt': ['F1DeadLetterQueue', 'Arn'] },
-              Condition: {
-                ArnEquals: {
-                  'aws:SourceArn': {
-                    'Fn::GetAtt': ['F1LambdaFunction', 'Arn']
-                  }
-                }
-              }
-            }]
+      const stubGetFunction = sinon.stub(mockServerless.service, 'getFunction');
+      stubGetFunction.withArgs(funcName).returns({
+        name: 'function-A',
+        deadLetter: {
+          sqs: 'abcd',
+          alarm: {
+            enabled: true,
+            alertingTopic: 'arn:aws:sns:region:account-id:topicname'
           }
         }
       });
 
+      // ACT:
+      plugin.compileCloudwatchAlarm(funcName);
+      const resources = mockServerless.service.provider.compiledCloudFormationTemplate.Resources;
+
+      // ASSERT:
+      expect(resources).to.have.key('FunASqsCloudwatchAlarm');
+      expect(resources.FunASqsCloudwatchAlarm).to.eql({
+        Type: 'AWS::CloudWatch::Alarm',
+        Properties: {
+          AlarmName: '[Error] function-A-SQS-DLQ',
+          AlarmDescription: 'At least one message was sent to the dead-letter queue of the function "function-A"',
+          MetricName: 'NumberOfMessagesSent',
+          Namespace: 'AWS/SQS',
+          Statistic: 'Sum',
+          Period: 60,
+          EvaluationPeriods: 1,
+          Threshold: 1,
+          Dimensions: [{
+            Name: 'QueueName',
+            Value: '!GetAtt FunADeadLetterTopic.QueueName'
+          }],
+          ComparisonOperator: 'GreaterThanOrEqualToThreshold',
+          ActionsEnabled: true,
+          TreatMissingData: 'notBreaching',
+          AlarmActions: [
+            'arn:aws:sns:region:account-id:topicname'
+          ]
+        }
+      });
+
+    });
+
+
+    it('can compile Cloudwatch::Alarm resource when sqs is a string', () => {
+
+      const funcObj = {
+        name: 'function-A',
+        deadLetter: {
+          sqs: 'abcd',
+          alarm: {
+            enabled: true,
+            alertingTopic: 'arn:aws:sns:region:account-id:topicname'
+          }
+        } };
+
+      // ACT:
+      const templates = compileCloudwatchAlarmTemplates('f1', funcObj);
+
+      // ASSERT:
+      expect(templates).to.have.key('sqs');
+      expect(templates).not.to.have.key('sns');
+      expect(templates.sqs).to.eql({
+        Type: 'AWS::CloudWatch::Alarm',
+        Properties: {
+          AlarmName: '[Error] function-A-SQS-DLQ',
+          AlarmDescription: 'At least one message was sent to the dead-letter queue of the function "function-A"',
+          MetricName: 'NumberOfMessagesSent',
+          Namespace: 'AWS/SQS',
+          Statistic: 'Sum',
+          Period: 60,
+          EvaluationPeriods: 1,
+          Threshold: 1,
+          Dimensions: null,
+          ComparisonOperator: 'GreaterThanOrEqualToThreshold',
+          ActionsEnabled: true,
+          TreatMissingData: 'notBreaching',
+          AlarmActions: [
+            'arn:aws:sns:region:account-id:topicname'
+          ]
+        }
+      });
+    });
+
+    it('can compile Cloudwatch::Alarm resource when sns is a string', () => {
+
+      const funcObj = {
+        name: 'function-A',
+        deadLetter: {
+          sns: 'abcd',
+          alarm: {
+            enabled: true,
+            alertingTopic: 'arn:aws:sns:region:account-id:topicname'
+          }
+        } };
+
+      // ACT:
+      const templates = compileCloudwatchAlarmTemplates('f1', funcObj);
+
+      // ASSERT:
+      expect(templates).to.have.key('sns');
+      expect(templates).not.to.have.key('sqs');
+      expect(templates.sns).to.eql({
+        Type: 'AWS::CloudWatch::Alarm',
+        Properties: {
+          AlarmName: '[Error] function-A-SNS-DLQ',
+          AlarmDescription: 'At least one message was sent to the dead-letter topic of the function "function-A"',
+          MetricName: 'NumberOfMessagesPublished',
+          Namespace: 'AWS/SNS',
+          Statistic: 'Sum',
+          Period: 60,
+          EvaluationPeriods: 1,
+          Threshold: 1,
+          Dimensions: null,
+          ComparisonOperator: 'GreaterThanOrEqualToThreshold',
+          ActionsEnabled: true,
+          TreatMissingData: 'notBreaching',
+          AlarmActions: [
+            'arn:aws:sns:region:account-id:topicname'
+          ]
+        }
+      });
+    });
+
+    it('can compile two Cloudwatch::Alarm resources when sqs and sns are defined', () => {
+
+      const funcObj = {
+        name: 'function-A',
+        deadLetter: {
+          sns: 'abcd',
+          sqs: 'abcd1',
+          alarm: {
+            enabled: true,
+            alertingTopic: 'arn:aws:sns:region:account-id:topicname'
+          }
+        } };
+
+      // ACT:
+      const templates = compileCloudwatchAlarmTemplates('f1', funcObj);
+
+      // ASSERT:
+      expect(templates).to.have.key('sns');
+      expect(templates).to.have.key('sqs');
+      expect(templates.sns).to.eql({
+        Type: 'AWS::CloudWatch::Alarm',
+        Properties: {
+          AlarmName: '[Error] function-A-SNS-DLQ',
+          AlarmDescription: 'At least one message was sent to the dead-letter topic of the function "function-A"',
+          MetricName: 'NumberOfMessagesPublished',
+          Namespace: 'AWS/SNS',
+          Statistic: 'Sum',
+          Period: 60,
+          EvaluationPeriods: 1,
+          Threshold: 1,
+          Dimensions: null,
+          ComparisonOperator: 'GreaterThanOrEqualToThreshold',
+          ActionsEnabled: true,
+          TreatMissingData: 'notBreaching',
+          AlarmActions: [
+            'arn:aws:sns:region:account-id:topicname'
+          ]
+        }
+      });
+      expect(templates.sqs).to.eql({
+        Type: 'AWS::CloudWatch::Alarm',
+        Properties: {
+          AlarmName: '[Error] function-A-SQS-DLQ',
+          AlarmDescription: 'At least one message was sent to the dead-letter queue of the function "function-A"',
+          MetricName: 'NumberOfMessagesSent',
+          Namespace: 'AWS/SQS',
+          Statistic: 'Sum',
+          Period: 60,
+          EvaluationPeriods: 1,
+          Threshold: 1,
+          Dimensions: null,
+          ComparisonOperator: 'GreaterThanOrEqualToThreshold',
+          ActionsEnabled: true,
+          TreatMissingData: 'notBreaching',
+          AlarmActions: [
+            'arn:aws:sns:region:account-id:topicname'
+          ]
+        }
+      });
+    });
+
+    it('can override Cloudwatch::Alarm for SQS, when deadLetter.alarm.sqs is defined', () => {
+
+      const funcObj = {
+        name: 'function-A',
+        deadLetter: {
+          sns: 'abcd',
+          sqs: 'abcd1',
+          alarm: {
+            enabled: true,
+            alertingTopic: 'arn:aws:sns:region:account-id:topicname',
+            sqs: {
+              AlarmName: 'Silly',
+              EvaluationPeriods: 4
+            }
+          }
+        } };
+
+      // ACT:
+      const templates = compileCloudwatchAlarmTemplates('f1', funcObj);
+
+      // ASSERT:
+      expect(templates).to.have.key('sns');
+      expect(templates).to.have.key('sqs');
+      expect(templates.sns).to.eql({
+        Type: 'AWS::CloudWatch::Alarm',
+        Properties: {
+          AlarmName: '[Error] function-A-SNS-DLQ',
+          AlarmDescription: 'At least one message was sent to the dead-letter topic of the function "function-A"',
+          MetricName: 'NumberOfMessagesPublished',
+          Namespace: 'AWS/SNS',
+          Statistic: 'Sum',
+          Period: 60,
+          EvaluationPeriods: 1,
+          Threshold: 1,
+          Dimensions: null,
+          ComparisonOperator: 'GreaterThanOrEqualToThreshold',
+          ActionsEnabled: true,
+          TreatMissingData: 'notBreaching',
+          AlarmActions: [
+            'arn:aws:sns:region:account-id:topicname'
+          ]
+        }
+      });
+      expect(templates.sqs).to.eql({
+        Type: 'AWS::CloudWatch::Alarm',
+        Properties: {
+          AlarmName: 'Silly',
+          AlarmDescription: 'At least one message was sent to the dead-letter queue of the function "function-A"',
+          MetricName: 'NumberOfMessagesSent',
+          Namespace: 'AWS/SQS',
+          Statistic: 'Sum',
+          Period: 60,
+          EvaluationPeriods: 4,
+          Threshold: 1,
+          Dimensions: null,
+          ComparisonOperator: 'GreaterThanOrEqualToThreshold',
+          ActionsEnabled: true,
+          TreatMissingData: 'notBreaching',
+          AlarmActions: [
+            'arn:aws:sns:region:account-id:topicname'
+          ]
+        }
+      });
     });
 
   });

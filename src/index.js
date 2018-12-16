@@ -1,7 +1,7 @@
 'use strict';
 
 const BbPromise = require('bluebird');
-const { compileCloudwatchSQSAlarm } = require('./alerting');
+const { compileCloudwatchAlarmTemplates, sqsAlarmDimensions, snsAlarmDimensions } = require('./alerting');
 
 class Plugin {
 
@@ -216,25 +216,37 @@ class Plugin {
   compileCloudwatchAlarm(functionName) {
     const functionObj = this.serverless.service.getFunction(functionName);
 
-    if (functionObj.deadLetter.alert === undefined) {
+    if (functionObj.deadLetter.alarm === undefined) {
       return BbPromise.resolve();
-    } else if (!functionObj.deadLetter.alert || functionObj.deadLetter.alert === '') {
-      throw new Error(`Function property ${functionName}.deadLetter.alert must be an object or a string.`);
+    } else if (typeof functionObj.deadLetter.alarm !== 'object' || functionObj.deadLetter.alarm === null) {
+      throw new Error(`Function property ${functionName}.deadLetter.alarm must be an object.`);
     } else if (functionObj.deadLetter.sns === undefined &&
-                functionObj.deadLetter.sns === undefined &&
+                functionObj.deadLetter.sqs === undefined &&
                 functionObj.deadLetter.targetArn === undefined) {
       throw new Error(`Any property ${functionName}.deadLetter.[sns, sqs or targetArn] must be defined.`);
     }
 
     this.serverless.cli.log(`Adding alerting to ${functionObj.name}`);
-
-
-    const alarmLogicalId = this.getLogicalIdForCloudwatchAlarm(functionName);
     const resources = this.serverless.service.provider.compiledCloudFormationTemplate.Resources;
+    const alarmResources = compileCloudwatchAlarmTemplates(functionName, functionObj);
 
-    const alarmResource = compileCloudwatchSQSAlarm(this.serverless, functionObj.deadLetter.alert);
+    Object.entries(alarmResources).forEach((keyValue) => {
+      const dlqType = keyValue[0];
+      const alarmResource = keyValue[1];
 
-    resources[alarmLogicalId] = alarmResource;
+      const alarmLogicalId = this.getLogicalIdForCloudwatchAlarm(functionName,
+        Plugin.capitalizeFirstLetter(dlqType));
+      if (dlqType === 'sns') {
+        alarmResource.Properties.Dimensions = snsAlarmDimensions(
+          this.getLogicalIdForDlTopic(functionName)
+          );
+      } else if (dlqType === 'sqs') {
+        alarmResource.Properties.Dimensions = sqsAlarmDimensions(
+          this.getLogicalIdForDlTopic(functionName)
+          );
+      }
+      resources[alarmLogicalId] = alarmResource;
+    });
 
     return BbPromise.resolve();
   }
@@ -276,8 +288,8 @@ class Plugin {
   getLogicalIdForDlTopic(functionName) {
     return `${this.normalizeFunctionName(functionName)}DeadLetterTopic`;
   }
-  getLogicalIdForCloudwatchAlarm(functionName) {
-    return `${this.normalizeFunctionName(functionName)}CloudwatchAlarm`;
+  getLogicalIdForCloudwatchAlarm(functionName, messageType) {
+    return `${this.normalizeFunctionName(functionName)}${messageType}CloudwatchAlarm`;
   }
 
   static capitalizeFirstLetter(string) {

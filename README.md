@@ -15,7 +15,7 @@
 
 A [serverless](https://serverless.com/) plugin that can assign a `DeadLetterConfig` to a Lambda function and optionally create a new SQS queue or SNS Topic with a simple syntax.
 
-Failed asynchronous messages for Amazon Lambda can be be sent to an SQS queue or an SNS topic by setting the `DeadLetterConfig`.  Lambda Dead Letter Queues [are documented here](http://docs.aws.amazon.com/lambda/latest/dg/dlq.html).  
+Failed asynchronous messages for Amazon Lambda can be be sent to an SQS queue or an SNS topic by setting the `DeadLetterConfig`.  Lambda Dead Letter Queues [are documented here](http://docs.aws.amazon.com/lambda/latest/dg/dlq.html).
 
 At the time this plugin was developed AWS Cloudformation (and serverless) did not support the `DeadLetterConfig` property of the Lambda so we have introduced a plugin that calls `UpdateFunctionConfiguration` on the lambda after serverless deploys the CloudFormation stack.
 
@@ -41,7 +41,7 @@ plugins:
 
 ## How do I use it?
 
-Dead letter settings are assigned via a new `deadLetter` property nested under a function in a `serverless.yml` file.  
+Dead letter settings are assigned via a new `deadLetter` property nested under a function in a `serverless.yml` file.
 
 There are several methods to configure the Lambda deadLetterConfig.
 
@@ -53,10 +53,10 @@ There are several methods to configure the Lambda deadLetterConfig.
 ### Method-1
 
 #### DeadLetter Queue
-Use the `deadLetter.sqs` to create a new dead letter queue for the function.  
+Use the `deadLetter.sqs` to create a new dead letter queue for the function.
 
 
-The resulting cloudformation stack will contain an SQS Queue and it's respective QueuePolicy.  
+The resulting cloudformation stack will contain an SQS Queue and it's respective QueuePolicy.
 
 #### Create new dead-letter queue by name
 ```YAML
@@ -122,7 +122,7 @@ functions:
 ```
 
 ### Method-3
-If you created a queue\topic in the `resource` section you can reference it using the `GetResourceArn` pseudo method.  
+If you created a queue\topic in the `resource` section you can reference it using the `GetResourceArn` pseudo method.
 
 This will use the arn of the resource referenced by `{logicalId}`
 ```YAML
@@ -130,7 +130,7 @@ This will use the arn of the resource referenced by `{logicalId}`
       targetArn:
         GetResourceArn: {logicalId}
 ```
-Note:  
+Note:
 - At present this only works for SQS queues or SNS Topics.
 - If a queue\topic is created in the `resources` section you will still need to add a resource for the respective queue\topic policy so that that lambda has permissions to write to the dead letter queue\topic.
 
@@ -183,3 +183,38 @@ functions:
     deadLetter:
       targetArn:
 ```
+
+### Add Cloudwatch Alerting
+
+Use the `alarm` property to add and modify Cloudwatch Alarms for your dead-letter queues (SQS) or topics (SNS). If you enable this feature, be sure to add a `topic` to enable an automatic SNS-message [AlarmAction](https://docs.aws.amazon.com/de_de/AWSCloudFormation/latest/UserGuide/aws-properties-cw-alarm.html#cfn-cloudwatch-alarms-alarmactions):
+
+```yml
+    deadLetter:
+      targetArn|sqs|sns:
+        ...
+      alarm:
+        enabled: [true|false],
+        topic: 'arn:aws:sns:region:account-id:alertingTopicName'
+```
+
+Customize your Cloudwatch-alarm like this:
+
+```yml
+    deadLetter:
+      targetArn|sqs|sns:
+        ...
+      alarm:
+        enabled: [true|false],
+        topic: 'arn:aws:sns:region:account-id:topicname'
+        sqs:
+          Period: 120
+          EvaluationPeriods: 3
+          ComparisonOperator: GreaterThanOrEqualToThreshold
+          Threshold: 10
+        sns:
+          Period: 180
+          EvaluationPeriods: 1
+          ComparisonOperator: GreaterThanOrEqualToThreshold
+          Threshold: 2
+```
+
