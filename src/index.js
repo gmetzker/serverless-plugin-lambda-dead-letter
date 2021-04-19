@@ -6,6 +6,12 @@ class Plugin {
 
   constructor(serverless, options) {
 
+    serverless.configSchemaHandler.defineFunctionProperties('aws', {
+      properties: {
+        deadLetter: { type: 'object' }
+      }
+    });
+
     this.serverless = serverless;
     this.options = options;
     this.provider = serverless.getProvider('aws');

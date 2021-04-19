@@ -52,7 +52,11 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
       },
       cli: { log: () => {
-      } }
+      } },
+      configSchemaHandler: { 
+        defineFunctionProperties: () => {} 
+      }
+
     };
 
     return serverless;
@@ -97,7 +101,8 @@ describe('serverless-plugin-lambda-dead-letter', () => {
 
       // ARRANGE:
       const serverlessStub = {
-        getProvider: sinon.stub()
+        getProvider: sinon.stub(),
+        configSchemaHandler: { defineFunctionProperties: () => {}},
       };
       const provider = { kother: 'v' };
       const options = { k: 'v' };
