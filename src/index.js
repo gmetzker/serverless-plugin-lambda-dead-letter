@@ -5,6 +5,11 @@ const BbPromise = require('bluebird');
 class Plugin {
 
   constructor(serverless, options) {
+    serverless.configSchemaHandler.defineFunctionProperties('aws', {
+      properties: {
+        deadLetter: { type: 'object' }
+      }
+    });
 
     this.serverless = serverless;
     this.options = options;
