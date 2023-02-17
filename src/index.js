@@ -162,34 +162,33 @@ class Plugin {
 
     return BbPromise.mapSeries(this.serverless.service.getAllFunctions(), functionName =>
       this.buildDeadLetterUpdateParams(functionName, this.deploy)
+        .then((deadLetterUpdateParams) => {
 
-      .then((deadLetterUpdateParams) => {
+          if (!deadLetterUpdateParams) {
+            return BbPromise.resolve();
+          }
 
-        if (!deadLetterUpdateParams) {
-          return BbPromise.resolve();
-        }
+          let logPrefix;
+          let updateStep;
 
-        let logPrefix;
-        let updateStep;
+          if (this.deploy) {
+            logPrefix = '(updated)';
+            updateStep = this.provider.request('Lambda', 'updateFunctionConfiguration',
+              deadLetterUpdateParams, this.options.stage, this.options.region);
+          } else {
+            logPrefix = '(noDeploy)';
+            updateStep = BbPromise.resolve();
+          }
 
-        if (this.deploy) {
-          logPrefix = '(updated)';
-          updateStep = this.provider.request('Lambda', 'updateFunctionConfiguration',
-            deadLetterUpdateParams, this.options.stage, this.options.region);
-        } else {
-          logPrefix = '(noDeploy)';
-          updateStep = BbPromise.resolve();
-        }
+          return updateStep.then(() => {
 
-        return updateStep.then(() => {
+            const arnDisplayStr = deadLetterUpdateParams.DeadLetterConfig.TargetArn || '{none}';
 
-          const arnDisplayStr = deadLetterUpdateParams.DeadLetterConfig.TargetArn || '{none}';
+            this.serverless.cli.log(`${logPrefix} Function '${functionName}' ` +
+                `DeadLetterConfig.TargetArn: ${arnDisplayStr}`);
+          });
 
-          this.serverless.cli.log(`${logPrefix} Function '${functionName}' ` +
-              `DeadLetterConfig.TargetArn: ${arnDisplayStr}`);
-        });
-
-      }));
+        }));
   }
 
   static convertQueueUrlToArn(queueUrl) {
